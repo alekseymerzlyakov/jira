@@ -1,0 +1,164 @@
+:root {
+  font-family: Arial, sans-serif;
+  background: #f5f6f8;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 7fr 3fr; /* ~70% / 30% */
+  gap: 16px;
+  padding: 16px;
+}
+
+.main-split {
+  display: grid;
+  grid-template-columns: 5fr 5fr; /* search wider (~50/50) */
+  gap: 16px;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+  gap: 6px;
+}
+
+.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+textarea,
+input {
+  padding: 8px;
+  border: 1px solid #cbd2d9;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+button {
+  padding: 10px 14px;
+  background: #0052cc;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #0747a6;
+}
+
+.status {
+  min-height: 20px;
+  color: #333;
+  font-size: 14px;
+}
+
+.output {
+  background: #0b1021;
+  color: #d4d4d4;
+  padding: 12px;
+  min-height: 200px;
+  border-radius: 6px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 12px;
+  align-items: flex-start;
+}
+
+.checkboxes label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px; /* чуть больше читаемости, но компактно */
+  line-height: 1.2;
+  text-align: left;
+  width: auto;
+}
+
+.checkboxes input {
+  margin: 0;
+}
+
+.checkboxes input[type="radio"] {
+  appearance: radio;
+  -webkit-appearance: radio;
+  -moz-appearance: radio;
+}
+
+.phrases {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.phrases-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.phrases-list li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 6px 0;
+  border-bottom: 1px solid #eceff4;
+  font-size: 13px;
+}
+
+.phrases-list .text {
+  flex: 1;
+  word-break: break-word;
+}
+
+.phrases-list .actions {
+  display: flex;
+  gap: 8px;
+}
+
+.phrases-list button {
+  padding: 6px 10px;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+

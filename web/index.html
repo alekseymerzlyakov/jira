@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jira AI Search</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <div class="main-split">
+        <section class="panel">
+          <h1>Jira AI Search</h1>
+          <div class="field">
+            <label for="query">Natural query</label>
+            <textarea id="query" placeholder="e.g. Найди мои задачи в статусе To Do"></textarea>
+          </div>
+          <div class="field">
+            <label for="jql">JQL override (опционально)</label>
+            <input id="jql" type="text" placeholder='project = CE AND status = "To Do"' />
+          </div>
+          <div class="field inline">
+            <button id="preview" type="button">Preview JQL</button>
+            <button id="run">Search</button>
+          </div>
+          <div class="field inline">
+            <label><input type="checkbox" id="analysis" /> Analysis (LLM summary)</label>
+            <label><input type="checkbox" id="showRaw" /> Show raw JSON</label>
+          </div>
+          <div class="filters">
+            <div class="field">
+              <label>Проекты (по умолчанию все)</label>
+              <div id="projectsBox" class="checkboxes">
+                <label><input type="checkbox" data-role="all" checked /> Все проекты</label>
+              </div>
+            </div>
+            <div class="field">
+              <label>Пользователи (по умолчанию все)</label>
+              <div id="usersBox" class="checkboxes">
+                <label><input type="checkbox" data-role="all" checked /> Все пользователи</label>
+              </div>
+            </div>
+            <div class="field">
+              <label>Спринт (последние 5)</label>
+              <div id="sprintsBox" class="checkboxes"></div>
+            </div>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Results</h2>
+          <div class="status" id="status"></div>
+          <pre id="output" class="output"></pre>
+        </section>
+      </div>
+      <aside class="panel history">
+        <h2>Стандартные фразы</h2>
+        <div class="phrases">
+          <div class="field">
+            <label for="phraseInput">Новая/правка</label>
+            <input id="phraseInput" type="text" placeholder="Например: выведи заведенные ошибки за этот месяц" />
+            <div class="inline">
+              <button id="phraseSave" type="button">Сохранить</button>
+              <button id="phraseCancel" type="button">Сбросить выбор</button>
+            </div>
+          </div>
+          <ul id="phrasesList" class="phrases-list"></ul>
+        </div>
+      </aside>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
+

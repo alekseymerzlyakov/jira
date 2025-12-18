@@ -1,0 +1,404 @@
+[
+  {
+    "query": "выведи задачи которые на мне",
+    "jql": "((text ~ \"выведи задачи которые на мне\") AND project in (\"NEWCOR\") AND assignee in (\"mw071175maj\")) AND project in (\"NEWCOR\") AND assignee in (\"mw071175maj\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T11:15:58.537219Z"
+  },
+  {
+    "query": "выведи задачи которые на мне",
+    "jql": "(((text ~ \"выведи задачи которые на мне\") AND project in (\"NEWCOR\") AND assignee in (\"mw071175maj\")) AND project in (\"NEWCOR\") AND assignee in (\"mw071175maj\")) AND project in (\"NEWCOR\") AND assignee in (\"mw071175maj\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T11:16:13.986921Z"
+  },
+  {
+    "query": "выведи задачи которые на мне",
+    "jql": "((text ~ \"выведи задачи которые на мне\") AND project in (\"NEWCOR\") AND assignee in (\"mw071175maj\")) AND project in (\"NEWCOR\") AND assignee in (\"mw071175maj\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T11:21:10.235457Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "((text ~ \"сколько времени я затрекал в этом месяце?\") AND assignee in (\"mw071175maj\")) AND assignee in (\"mw071175maj\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T11:23:59.955595Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "(text ~ \"сколько времени я затрекал в этом месяце?\") AND assignee in (\"mw071175maj\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T11:28:20.913719Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "((text ~ \"сколько времени я затрекал в этом месяце?\") AND project in (\"CE\") AND assignee in (\"mw071175maj\"))",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T11:29:52.523632Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "((worklogAuthor = currentUser() AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth()) AND project in (\"CE\"))",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T11:31:41.054163Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "((worklogAuthor = currentUser() AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth()))",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T11:40:43.319181Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "((worklogAuthor = currentUser() AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth()))",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T11:42:58.259774Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "((((worklogAuthor = currentUser() AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth()))) AND project in (\"CE\"))",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T11:43:55.995083Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "(((((worklogAuthor = currentUser() AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth()))) AND project in (\"CE\")))",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T11:44:09.304701Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "((worklogAuthor = currentUser() AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth()))",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T11:48:55.743237Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "((((worklogAuthor = currentUser() AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth()))))",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T11:49:19.290537Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "((worklogAuthor = currentUser() AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth()) AND project in (\"CE\"))",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T11:49:48.467317Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "((worklogAuthor = currentUser() AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth()))",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:00:25.758984Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "(((((worklogAuthor = currentUser() AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth())))))",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:00:50.999181Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "(((((((worklogAuthor = currentUser() AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth())))))) AND project in (\"CE\"))",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:01:05.685061Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "((worklogAuthor = currentUser() AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth()) AND project in (\"CE\"))",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:04:56.640774Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "((((worklogAuthor = currentUser() AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth()) AND project in (\"CE\"))))",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:12:12.075481Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "(((((worklogAuthor = currentUser() AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth()) AND project in (\"CE\")))))",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:12:17.295035Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "worklogAuthor in (\"mw071175maj\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:16:21.434088Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "worklogAuthor in (\"mw071175maj\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:19:03.026552Z"
+  },
+  {
+    "query": "сколько времени я затрекал в этом месяце?",
+    "jql": "worklogAuthor in (\"mw071175maj\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:19:14.900765Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "text ~ \"выведи списаное время за текущий месяц\" AND project in (\"CE\") AND assignee in (\"mw071175maj\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:29:02.694181Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogAuthor in (\"mw071175maj\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:44:34.576496Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogAuthor in (\"mw301188lvi\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:44:45.273599Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogAuthor in (\"mw071175maj\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:51:24.331144Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogAuthor in (\"mw071175maj\",\"mw301188lvi\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:51:34.916354Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogAuthor in (\"mw071175maj\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:54:14.687427Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogAuthor in (\"mw071175maj\",\"mw301188lvi\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:54:24.095526Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogAuthor in (\"mw301188lvi\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:54:30.814199Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogAuthor in (\"mw301188lvi\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CGA\",\"COR\",\"PCTR\",\"SIM\",\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:55:39.585235Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogAuthor in (\"mw301188lvi\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CGA\",\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:56:22.206537Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogAuthor in (\"mw301188lvi\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:56:34.955468Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogAuthor in (\"mw301188lvi\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:56:42.459035Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogAuthor in (\"mw301188lvi\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:57:02.341138Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogAuthor in (\"mw301188lvi\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CGA\",\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T12:57:12.734938Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogAuthor in (\"mw071175maj\",\"mw301188lvi\",\"mw300389kiy\",\"mw190586kji\",\"mw101094amb\",\"mw261092mes\") AND worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T13:00:56.795335Z"
+  },
+  {
+    "query": "выведи списаное время за текущую неделю",
+    "jql": "worklogDate \u003e= startOfWeek() AND worklogDate \u003c= endOfWeek() AND worklogAuthor in (\"mw071175maj\") AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T13:05:23.836646Z"
+  },
+  {
+    "query": "выведи заведенные ошибки в этом месяце",
+    "jql": "created \u003e= startOfMonth() AND created \u003c= endOfMonth() AND issuetype = Bug AND reporter in (\"mw071175maj\") AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T13:17:03.96677Z"
+  },
+  {
+    "query": "выведи заведенные ошибки в этом месяце",
+    "jql": "created \u003e= startOfMonth() AND created \u003c= endOfMonth() AND issuetype = Bug AND reporter in (\"mw071175maj\") AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T13:17:13.109755Z"
+  },
+  {
+    "query": "выведи заведенные ошибки в этом месяце",
+    "jql": "created \u003e= startOfMonth() AND created \u003c= endOfMonth() AND issuetype = Bug AND reporter in (\"mw071175maj\") AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T13:22:10.694639Z"
+  },
+  {
+    "query": "выведи заведенные ошибки в этом месяце",
+    "jql": "created \u003e= startOfMonth() AND created \u003c= endOfMonth() AND issuetype = Bug AND reporter in (\"mw071175maj\") AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T13:22:35.916969Z"
+  },
+  {
+    "query": "выведи заведенные ошибки в этом месяце",
+    "jql": "created \u003e= startOfMonth() AND created \u003c= endOfMonth() AND issuetype = Bug AND reporter in (\"mw071175maj\") AND project in (\"CE\")",
+    "maxResults": 10,
+    "createdAt": "2025-12-18T13:25:47.229243Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND worklogAuthor in (\"mw071175maj\",\"mw301188lvi\",\"mw300389kiy\",\"mw190586kji\",\"mw101094amb\",\"mw261092mes\") AND project in (\"MVB\",\"CGA\",\"HR\",\"PHIL\",\"PH\",\"PCTR\",\"QA\",\"SIM\",\"SD\",\"CE\",\"NEWCOR\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T14:51:33.673882Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND worklogAuthor in (\"mw071175maj\") AND project in (\"CE\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T15:13:52.723433Z"
+  },
+  {
+    "query": "выведи списаное время за текущую неделю",
+    "jql": "worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND worklogAuthor in (\"mw071175maj\") AND project in (\"CE\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T15:14:33.734609Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "created \u003e= startOfWeek() AND created \u003c= endOfWeek() AND issuetype = Bug AND reporter = currentUser() AND worklogAuthor in (\"mw071175maj\") AND project in (\"CE\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T15:38:25.343409Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "created \u003e= startOfWeek() AND created \u003c= endOfWeek() AND issuetype = Bug AND reporter = currentUser() AND worklogAuthor in (\"mw071175maj\") AND project in (\"CE\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T15:41:57.250275Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "created \u003e= \"2025-12-18\" AND created \u003c= \"2025-12-24\" AND issuetype = Bug AND reporter = currentUser() AND worklogAuthor in (\"mw071175maj\") AND project in (\"CE\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\"",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T15:45:10.85972Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "created \u003e= \"2025-12-18\" AND created \u003c= \"2025-12-24\" AND issuetype = Bug AND reporter = currentUser() AND worklogAuthor in (\"mw301188lvi\") AND project in (\"CE\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\" AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\" AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\"",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T15:45:55.991157Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "issuetype = Bug AND reporter = currentUser() AND worklogAuthor in (\"mw071175maj\") AND project in (\"CE\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\"",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T15:48:50.66659Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "issuetype = Bug AND project in (\"CE\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\" AND worklogAuthor in (\"mw071175maj\") AND reporter in (\"mw071175maj\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T15:56:53.095853Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "issuetype = Bug AND project in (\"CE\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\" AND worklogAuthor in (\"mw301188lvi\") AND reporter in (\"mw301188lvi\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T15:57:06.021322Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "issuetype = Bug AND project in (\"CE\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\" AND worklogAuthor in (\"mw071175maj\",\"mw301188lvi\") AND reporter in (\"mw071175maj\",\"mw301188lvi\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T15:57:16.164716Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "issuetype = Bug AND project in (\"CE\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\" AND worklogAuthor in (\"mw071175maj\") AND reporter in (\"mw071175maj\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T16:09:26.851771Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "issuetype = Bug AND project in (\"CE\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\" AND worklogAuthor in (\"mw071175maj\",\"mw301188lvi\") AND reporter in (\"mw071175maj\",\"mw301188lvi\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T16:09:31.553245Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "issuetype = Bug AND project in (\"CGA\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\" AND worklogAuthor in (\"mw071175maj\",\"mw301188lvi\") AND reporter in (\"mw071175maj\",\"mw301188lvi\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T16:10:55.786813Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "issuetype = Bug AND project in (\"CE\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\" AND worklogAuthor in (\"mw071175maj\") AND reporter in (\"mw071175maj\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T16:15:04.749395Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "issuetype = Bug AND project in (\"CE\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\" AND worklogAuthor in (\"mw071175maj\",\"mw301188lvi\") AND reporter in (\"mw071175maj\",\"mw301188lvi\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T16:15:09.239917Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "issuetype = Bug AND project in (\"CGA\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\" AND worklogAuthor in (\"mw071175maj\",\"mw301188lvi\") AND reporter in (\"mw071175maj\",\"mw301188lvi\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T16:15:13.976186Z"
+  },
+  {
+    "query": "выведи списаное время за текущий месяц",
+    "jql": "worklogDate \u003e= startOfMonth() AND worklogDate \u003c= endOfMonth() AND project in (\"CE\") AND worklogAuthor in (\"mw071175maj\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T16:18:54.100447Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом месяце",
+    "jql": "created \u003e= startOfMonth() AND created \u003c= endOfMonth() AND issuetype = Bug AND project in (\"CE\") AND reporter in (\"mw071175maj\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T16:19:07.199935Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "issuetype = Bug AND project in (\"CE\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\" AND worklogAuthor in (\"mw071175maj\") AND reporter in (\"mw071175maj\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T16:19:24.731905Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в 185 спринте",
+    "jql": "issuetype = Bug AND project in (\"CE\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\" AND worklogAuthor in (\"mw071175maj\") AND reporter in (\"mw071175maj\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T16:19:56.551358Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "issuetype = Bug AND project in (\"CE\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\" AND worklogAuthor in (\"mw071175maj\",\"mw301188lvi\",\"mw300389kiy\",\"mw190586kji\",\"mw101094amb\",\"mw261092mes\") AND reporter in (\"mw071175maj\",\"mw301188lvi\",\"mw300389kiy\",\"mw190586kji\",\"mw101094amb\",\"mw261092mes\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T16:30:49.076199Z"
+  },
+  {
+    "query": "Выведи заведенные ошибки в этом спринте",
+    "jql": "issuetype = Bug AND project in (\"CE\") AND worklogDate \u003e= \"2025-12-18\" AND worklogDate \u003c= \"2025-12-24\" AND worklogAuthor in (\"mw071175maj\") AND reporter in (\"mw071175maj\")",
+    "maxResults": 300,
+    "createdAt": "2025-12-18T16:45:09.087972Z"
+  }
+]

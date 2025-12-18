@@ -1,0 +1,32 @@
+[
+  {
+    "name": "jira_fields",
+    "path": "data/jira_fields.json",
+    "fetchedAt": "2025-12-18T10:33:13Z"
+  },
+  {
+    "name": "jira_projects",
+    "path": "data/jira_projects.json",
+    "fetchedAt": "2025-12-18T10:33:13Z"
+  },
+  {
+    "name": "jira_statuses",
+    "path": "data/jira_statuses.json",
+    "fetchedAt": "2025-12-18T10:33:13Z"
+  },
+  {
+    "name": "jira_issue_types",
+    "path": "data/jira_issue_types.json",
+    "fetchedAt": "2025-12-18T10:33:13Z"
+  },
+  {
+    "name": "jira_priorities",
+    "path": "data/jira_priorities.json",
+    "fetchedAt": "2025-12-18T10:33:13Z"
+  },
+  {
+    "name": "jira_versions",
+    "path": "data/jira_versions.json",
+    "fetchedAt": "2025-12-18T10:33:15Z"
+  }
+]
