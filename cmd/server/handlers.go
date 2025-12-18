@@ -293,7 +293,7 @@ func (h *apiHandler) handleHistorySearch(w http.ResponseWriter, r *http.Request,
 
 func (h *apiHandler) handleHistoryAction(w http.ResponseWriter, r *http.Request, entry history.Entry) {
 	if h.llm == nil {
-		http.Error(w, "LLM not configured", http.StatusNotImplemented)
+		respondError(w, http.StatusNotImplemented, errors.New("LLM not configured"), "")
 		return
 	}
 	if r.Method != http.MethodPost {
@@ -304,18 +304,22 @@ func (h *apiHandler) handleHistoryAction(w http.ResponseWriter, r *http.Request,
 		Command string `json:"command"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, errors.New("invalid json"), "")
 		return
 	}
 	command := strings.TrimSpace(req.Command)
 	if command == "" {
-		http.Error(w, "command is required", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, errors.New("command is required"), "")
 		return
 	}
 	contextText := buildFollowUpContext(entry)
+	if strings.TrimSpace(contextText) == "" {
+		respondError(w, http.StatusUnprocessableEntity, errors.New("no context available for follow-up"), "")
+		return
+	}
 	answer, err := h.llm.FollowUp(r.Context(), contextText, command)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("llm: %v", err), http.StatusBadGateway)
+		respondError(w, http.StatusBadGateway, fmt.Errorf("llm: %w", err), "")
 		return
 	}
 	resp := struct {
