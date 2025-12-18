@@ -37,10 +37,6 @@ const commandRunBtn = document.getElementById("commandRun");
 const commandOutput = document.getElementById("commandOutput");
 let historyEntries = [];
 let currentHistoryId = null;
-const stepsPanel = document.getElementById("stepsPanel");
-const historyListEl = document.getElementById("historyList");
-const historyDetailEl = document.getElementById("historyDetail");
-let historyEntries = [];
 
 // Если пользователь меняет текст запроса — сбрасываем JQL, чтобы не прилипало старое.
 queryInput.addEventListener("input", () => {
