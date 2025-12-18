@@ -248,6 +248,9 @@ func (h *apiHandler) historyItem() http.Handler {
 		case "search":
 			h.handleHistorySearch(w, r, entry)
 			return
+		case "action":
+			h.handleHistoryAction(w, r, entry)
+			return
 		default:
 			http.NotFound(w, r)
 			return
@@ -286,6 +289,92 @@ func (h *apiHandler) handleHistorySearch(w http.ResponseWriter, r *http.Request,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func (h *apiHandler) handleHistoryAction(w http.ResponseWriter, r *http.Request, entry history.Entry) {
+	if h.llm == nil {
+		http.Error(w, "LLM not configured", http.StatusNotImplemented)
+		return
+	}
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Command string `json:"command"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	command := strings.TrimSpace(req.Command)
+	if command == "" {
+		http.Error(w, "command is required", http.StatusBadRequest)
+		return
+	}
+	contextText := buildFollowUpContext(entry)
+	answer, err := h.llm.FollowUp(r.Context(), contextText, command)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("llm: %v", err), http.StatusBadGateway)
+		return
+	}
+	resp := struct {
+		Result string `json:"result"`
+	}{
+		Result: answer,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func buildFollowUpContext(entry history.Entry) string {
+	var b strings.Builder
+	if entry.Query != "" {
+		b.WriteString("Original query: ")
+		b.WriteString(entry.Query)
+		b.WriteString("\n")
+	}
+	if entry.JQL != "" {
+		b.WriteString("Executed JQL: ")
+		b.WriteString(entry.JQL)
+		b.WriteString("\n")
+	}
+	if entry.Analysis != "" {
+		b.WriteString("Analysis: ")
+		b.WriteString(entry.Analysis)
+		b.WriteString("\n")
+	}
+	if len(entry.Issues) > 0 {
+		b.WriteString("Issues:\n")
+		for i, iss := range entry.Issues {
+			if i >= 6 {
+				break
+			}
+			b.WriteString(fmt.Sprintf("- %s: %s (%s)\n", iss.Key, iss.Title, iss.URL))
+		}
+	}
+	if raw := findStepResult(entry.Steps, "Execute Jira search"); len(raw) > 0 {
+		b.WriteString("Raw JSON:\n")
+		b.WriteString(truncateString(string(raw), 2000))
+		b.WriteString("\n")
+	}
+	return truncateString(b.String(), 4000)
+}
+
+func findStepResult(steps []history.Step, name string) json.RawMessage {
+	for _, step := range steps {
+		if step.Name == name && len(step.Result) > 0 {
+			return step.Result
+		}
+	}
+	return nil
+}
+
+func truncateString(s string, limit int) string {
+	if limit <= 0 || len(s) <= limit {
+		return s
+	}
+	return s[:limit]
 }
 
 var titleDirective = regexp.MustCompile(`(?i)(?:название|названием|title)\s*[:\-]\s*(.+)`)

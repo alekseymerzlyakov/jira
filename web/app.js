@@ -32,6 +32,14 @@ let currentProjectKey = null;
 const stepsPanel = document.getElementById("stepsPanel");
 const historyListEl = document.getElementById("historyList");
 const historyDetailEl = document.getElementById("historyDetail");
+const commandInput = document.getElementById("commandInput");
+const commandRunBtn = document.getElementById("commandRun");
+const commandOutput = document.getElementById("commandOutput");
+let historyEntries = [];
+let currentHistoryId = null;
+const stepsPanel = document.getElementById("stepsPanel");
+const historyListEl = document.getElementById("historyList");
+const historyDetailEl = document.getElementById("historyDetail");
 let historyEntries = [];
 
 // Если пользователь меняет текст запроса — сбрасываем JQL, чтобы не прилипало старое.
@@ -204,6 +212,9 @@ renderUsers();
 loadProjects();
 loadPhrases().then(renderPhrases);
 loadHistoryEntries();
+if (commandRunBtn) {
+  commandRunBtn.addEventListener("click", executeCommand);
+}
 
 function buildIssuesList(raw, issuesFromResponse) {
   if (issuesFromResponse && issuesFromResponse.length) {
@@ -451,6 +462,10 @@ async function loadHistoryEntry(entryId, options = {}) {
     if (options.focusOutput !== false) {
       populateOutputFromEntry(entry);
     }
+    setCurrentHistoryId(entry.id);
+    if (commandOutput) {
+      commandOutput.innerHTML = "";
+    }
   } catch (err) {
     historyDetailEl.textContent = "Не удалось загрузить запись";
     console.error("loadHistoryEntry", err);
@@ -553,6 +568,7 @@ function populateOutputFromEntry(entry) {
   const issuesBlock = formatIssuesList(entry.issues);
   outputEl.textContent = `JQL: ${entry.jql}\n\n${analysisBlock}${issuesBlock}`;
   renderSteps(entry.steps || []);
+  setCurrentHistoryId(entry.id);
 }
 
 function formatIssuesList(issues) {
@@ -610,5 +626,51 @@ function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString();
+}
+
+function setCurrentHistoryId(id) {
+  currentHistoryId = id || null;
+}
+
+async function executeCommand() {
+  if (!commandInput || !commandRunBtn || !commandOutput) return;
+  const command = commandInput.value.trim();
+  if (!command) return;
+  if (!currentHistoryId) {
+    appendCommandEntry("Нет истории для команды.");
+    return;
+  }
+  commandRunBtn.disabled = true;
+  commandInput.disabled = true;
+  appendCommandEntry(`> ${command}`);
+  try {
+    const res = await fetch(`/api/history/${currentHistoryId}/action`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ command }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const message = data.error || res.statusText;
+      appendCommandEntry(`Ошибка: ${message}`);
+      return;
+    }
+    const data = await res.json();
+    appendCommandEntry(data.result || "Пустой ответ.");
+  } catch (err) {
+    appendCommandEntry(`Ошибка выполнения: ${err.message}`);
+  } finally {
+    commandRunBtn.disabled = false;
+    commandInput.disabled = false;
+  }
+}
+
+function appendCommandEntry(text) {
+  if (!commandOutput) return;
+  const row = document.createElement("div");
+  row.className = "command-entry";
+  row.textContent = text;
+  commandOutput.appendChild(row);
+  commandOutput.scrollTop = commandOutput.scrollHeight;
 }
 

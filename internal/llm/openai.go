@@ -109,3 +109,33 @@ Produce a concise answer in Russian with:
 	}
 	return strings.TrimSpace(resp.Choices[0].Message.Content), nil
 }
+
+func (o *OpenAI) FollowUp(ctx context.Context, contextText, command string) (string, error) {
+	if strings.TrimSpace(contextText) == "" {
+		return "", errors.New("empty context")
+	}
+	if strings.TrimSpace(command) == "" {
+		return "", errors.New("empty command")
+	}
+	system := `You are an AI assistant that manipulates Jira search results. The user provides context (goal, executed JQL, issue list, analysis) and a command describing what to do next (render as HTML, produce test cases, summarize, etc.). Use only the provided context. Respond with concise, plain text (or formatted text if requested), do not invent extra data.`
+	user := fmt.Sprintf("Context: %s\nUser command: %s", contextText, command)
+	resp, err := o.client.CreateChatCompletion(
+		ctx,
+		openai.ChatCompletionRequest{
+			Model: o.model,
+			Messages: []openai.ChatCompletionMessage{
+				{Role: openai.ChatMessageRoleSystem, Content: system},
+				{Role: openai.ChatMessageRoleUser, Content: user},
+			},
+			Temperature: 0.2,
+			MaxTokens:   400,
+		},
+	)
+	if err != nil {
+		return "", err
+	}
+	if len(resp.Choices) == 0 {
+		return "", errors.New("no choices")
+	}
+	return strings.TrimSpace(resp.Choices[0].Message.Content), nil
+}

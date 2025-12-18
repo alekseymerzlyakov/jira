@@ -51,6 +51,14 @@
           <div id="stepsPanel" class="steps-panel"></div>
           <div class="status" id="status"></div>
           <pre id="output" class="output"></pre>
+          <div class="command-panel">
+            <label for="commandInput">Что сделать с текущими данными?</label>
+            <textarea id="commandInput" rows="2" placeholder="Например: сделай список ссылок в виде HTML"></textarea>
+            <div class="command-actions">
+              <button id="commandRun" type="button">Выполнить</button>
+            </div>
+            <div id="commandOutput" class="command-output"></div>
+          </div>
         </section>
       </div>
       <aside class="panel history">
