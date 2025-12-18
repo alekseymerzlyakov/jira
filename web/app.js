@@ -93,10 +93,11 @@ async function runSearch(dryRun) {
     outputEl.textContent = `JQL: ${data.jql}\n\n${totalBlock}${analysisBlock}${linksBlock}${rawBlock}`;
     renderSteps(data.steps || []);
     if (!dryRun) {
-      await loadHistoryEntries();
       if (data.historyId) {
+        setCurrentHistoryId(data.historyId);
         await loadHistoryEntry(data.historyId, { focusOutput: false });
       }
+      await loadHistoryEntries();
     }
   } catch (err) {
     statusEl.textContent = `Error: ${err.message}`;
