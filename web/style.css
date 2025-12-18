@@ -27,6 +27,7 @@ body {
   border-radius: 8px;
   padding: 16px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  min-width: 0;
 }
 
 .field {
@@ -161,6 +162,8 @@ button:hover {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
 }
 
 .step-card {
@@ -281,6 +284,20 @@ button:hover {
 .command-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.results-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.main-split > section {
+  min-width: 0;
+}
+
+.command-panel textarea {
+  width: 100%;
 }
 
 .command-output {
