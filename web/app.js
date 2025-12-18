@@ -29,6 +29,10 @@ const sprintsBox = document.getElementById("sprintsBox");
 let projectSprints = [];
 let selectedSprintId = 0;
 let currentProjectKey = null;
+const stepsPanel = document.getElementById("stepsPanel");
+const historyListEl = document.getElementById("historyList");
+const historyDetailEl = document.getElementById("historyDetail");
+let historyEntries = [];
 
 // Если пользователь меняет текст запроса — сбрасываем JQL, чтобы не прилипало старое.
 queryInput.addEventListener("input", () => {
@@ -83,6 +87,13 @@ async function runSearch(dryRun) {
     const totalBlock = data.total ? `Total: ${data.total}\n\n` : "";
     const rawBlock = rawText ? `Raw:\n${rawText}` : "";
     outputEl.textContent = `JQL: ${data.jql}\n\n${totalBlock}${analysisBlock}${linksBlock}${rawBlock}`;
+    renderSteps(data.steps || []);
+    if (!dryRun) {
+      await loadHistoryEntries();
+      if (data.historyId) {
+        await loadHistoryEntry(data.historyId, { focusOutput: false });
+      }
+    }
   } catch (err) {
     statusEl.textContent = `Error: ${err.message}`;
   }
@@ -192,6 +203,7 @@ loadMyself();
 renderUsers();
 loadProjects();
 loadPhrases().then(renderPhrases);
+loadHistoryEntries();
 
 function buildIssuesList(raw, issuesFromResponse) {
   if (issuesFromResponse && issuesFromResponse.length) {
@@ -385,4 +397,218 @@ phraseCancelBtn.addEventListener("click", () => {
   jqlInput.value = "";
   renderPhrases();
 });
+
+async function loadHistoryEntries() {
+  if (!historyListEl) return;
+  try {
+    const res = await fetch("/api/history");
+    if (!res.ok) {
+      historyListEl.textContent = "Не удалось загрузить историю";
+      return;
+    }
+    const data = await res.json();
+    historyEntries = Array.isArray(data) ? data : [];
+    renderHistoryList(historyEntries);
+  } catch (err) {
+    historyListEl.textContent = "Не удалось загрузить историю";
+    console.error("loadHistoryEntries", err);
+  }
+}
+
+function renderHistoryList(entries) {
+  if (!historyListEl) return;
+  historyListEl.innerHTML = "";
+  if (!entries.length) {
+    historyListEl.textContent = "История пустая";
+    return;
+  }
+  entries.forEach((entry) => {
+    const item = document.createElement("div");
+    item.className = "history-item";
+    const text = document.createElement("div");
+    text.innerHTML = `<strong>${entry.query || "Без запроса"}</strong><br/><small>${formatDate(entry.createdAt)}</small>`;
+    const btn = document.createElement("button");
+    btn.textContent = "Открыть";
+    btn.addEventListener("click", async () => {
+      await loadHistoryEntry(entry.id);
+    });
+    item.appendChild(text);
+    item.appendChild(btn);
+    historyListEl.appendChild(item);
+  });
+}
+
+async function loadHistoryEntry(entryId, options = {}) {
+  if (!historyDetailEl) return;
+  try {
+    const res = await fetch(`/api/history/${entryId}`);
+    if (!res.ok) {
+      historyDetailEl.textContent = `Ошибка ${res.status}`;
+      return;
+    }
+    const entry = await res.json();
+    renderHistoryEntryDetail(entry);
+    if (options.focusOutput !== false) {
+      populateOutputFromEntry(entry);
+    }
+  } catch (err) {
+    historyDetailEl.textContent = "Не удалось загрузить запись";
+    console.error("loadHistoryEntry", err);
+  }
+}
+
+function renderHistoryEntryDetail(entry) {
+  if (!historyDetailEl) return;
+  historyDetailEl.innerHTML = "";
+  if (!entry) {
+    historyDetailEl.textContent = "Выберите ответ из списка";
+    return;
+  }
+  const title = document.createElement("h3");
+  title.textContent = entry.query || "Без запроса";
+  const meta = document.createElement("div");
+  meta.className = "detail-row";
+  meta.textContent = `JQL: ${entry.jql}`;
+  const issuesRow = document.createElement("div");
+  issuesRow.className = "detail-row";
+  issuesRow.textContent = `Задач: ${entry.issues?.length || 0}`;
+  const actions = document.createElement("div");
+  actions.className = "history-actions";
+  const openBtn = document.createElement("button");
+  openBtn.textContent = "Показать в результатах";
+  openBtn.addEventListener("click", () => populateOutputFromEntry(entry));
+  const searchInput = document.createElement("input");
+  searchInput.type = "text";
+  searchInput.placeholder = "Искать в задачах истории";
+  const searchBtn = document.createElement("button");
+  searchBtn.textContent = "Найти";
+  const matchesEl = document.createElement("div");
+  matchesEl.id = "historyMatches";
+  matchesEl.className = "detail-row";
+  searchBtn.addEventListener("click", async () => {
+    const query = searchInput.value.trim();
+    if (!query) return;
+    await searchHistoryMatches(entry.id, query);
+  });
+  actions.appendChild(openBtn);
+  actions.appendChild(searchInput);
+  actions.appendChild(searchBtn);
+  historyDetailEl.appendChild(title);
+  historyDetailEl.appendChild(meta);
+  historyDetailEl.appendChild(issuesRow);
+  historyDetailEl.appendChild(actions);
+  historyDetailEl.appendChild(matchesEl);
+  if (entry.steps && entry.steps.length) {
+    const stepsList = document.createElement("div");
+    stepsList.className = "detail-row";
+    stepsList.textContent = `Шагов: ${entry.steps.length}`;
+    historyDetailEl.appendChild(stepsList);
+  }
+}
+
+async function searchHistoryMatches(entryId, query) {
+  if (!historyDetailEl) return;
+  try {
+    const res = await fetch(`/api/history/${entryId}/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    if (!res.ok) {
+      throw new Error(`${res.status}`);
+    }
+    const data = await res.json();
+    renderHistoryMatches(data.matches || []);
+  } catch (err) {
+    const matchesEl = historyDetailEl.querySelector("#historyMatches");
+    if (matchesEl) {
+      matchesEl.textContent = "Ошибка поиска";
+    }
+    console.error("searchHistoryMatches", err);
+  }
+}
+
+function renderHistoryMatches(matches) {
+  const matchesEl = historyDetailEl?.querySelector("#historyMatches");
+  if (!matchesEl) return;
+  if (!matches.length) {
+    matchesEl.textContent = "Совпадений не найдено.";
+    return;
+  }
+  matchesEl.innerHTML = "";
+  const list = document.createElement("ul");
+  list.className = "phrases-list";
+  matches.forEach((item) => {
+    const li = document.createElement("li");
+    li.textContent = `${item.key}: ${item.title}`;
+    list.appendChild(li);
+  });
+  matchesEl.appendChild(list);
+}
+
+function populateOutputFromEntry(entry) {
+  if (!entry) return;
+  statusEl.textContent = `Загружена история — ${entry.query || "без запроса"}`;
+  const analysisBlock = entry.analysis ? `Analysis:\n${entry.analysis}\n\n` : "";
+  const issuesBlock = formatIssuesList(entry.issues);
+  outputEl.textContent = `JQL: ${entry.jql}\n\n${analysisBlock}${issuesBlock}`;
+  renderSteps(entry.steps || []);
+}
+
+function formatIssuesList(issues) {
+  if (!issues || !issues.length) return "";
+  const lines = issues.map((iss) => `${iss.key}: ${iss.title} - ${iss.url}`);
+  return `Issues:\n${lines.join("\n")}\n\n`;
+}
+
+function renderSteps(steps) {
+  if (!stepsPanel) return;
+  stepsPanel.innerHTML = "";
+  if (!steps || !steps.length) {
+    stepsPanel.innerHTML = `<div class="step-card">Шаги будут показаны здесь после выполнения запроса.</div>`;
+    return;
+  }
+  steps.forEach((step) => {
+    const card = document.createElement("div");
+    card.className = "step-card";
+    const header = document.createElement("div");
+    header.className = "step-name";
+    const stepName = document.createElement("span");
+    stepName.textContent = step.name;
+    const status = document.createElement("span");
+    status.className = "step-status";
+    status.textContent = step.status || "pending";
+    header.appendChild(stepName);
+    header.appendChild(status);
+    card.appendChild(header);
+    if (step.description) {
+      const desc = document.createElement("div");
+      desc.textContent = step.description;
+      card.appendChild(desc);
+    }
+    const resultText = step.result ? formatStepResult(step.result) : "";
+    if (resultText) {
+      const pre = document.createElement("pre");
+      pre.textContent = resultText;
+      card.appendChild(pre);
+    }
+    stepsPanel.appendChild(card);
+  });
+}
+
+function formatStepResult(raw) {
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return typeof raw === "string" ? raw : "";
+  }
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
 

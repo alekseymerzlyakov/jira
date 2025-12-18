@@ -9,7 +9,7 @@
   <body>
     <main class="layout">
       <div class="main-split">
-        <section class="panel">
+        <section class="panel search-panel">
           <h1>Jira AI Search</h1>
           <div class="field">
             <label for="query">Natural query</label>
@@ -46,15 +46,16 @@
             </div>
           </div>
         </section>
-        <section class="panel">
+        <section class="panel results-panel">
           <h2>Results</h2>
+          <div id="stepsPanel" class="steps-panel"></div>
           <div class="status" id="status"></div>
           <pre id="output" class="output"></pre>
         </section>
       </div>
       <aside class="panel history">
-        <h2>Стандартные фразы</h2>
-        <div class="phrases">
+        <section class="phrases">
+          <h2>Стандартные фразы</h2>
           <div class="field">
             <label for="phraseInput">Новая/правка</label>
             <input id="phraseInput" type="text" placeholder="Например: выведи заведенные ошибки за этот месяц" />
@@ -64,7 +65,12 @@
             </div>
           </div>
           <ul id="phrasesList" class="phrases-list"></ul>
-        </div>
+        </section>
+        <section class="history-section">
+          <h2>История ответов</h2>
+          <div id="historyList" class="history-list"></div>
+          <div id="historyDetail" class="history-detail"></div>
+        </section>
       </aside>
     </main>
     <script src="/app.js"></script>

@@ -29,13 +29,15 @@ type searchRequest struct {
 }
 
 type searchResponse struct {
-	JQL      string          `json:"jql"`
-	Raw      json.RawMessage `json:"raw"`
-	History  []history.Entry `json:"history"`
-	Executed time.Time       `json:"executedAt"`
-	Analysis string          `json:"analysis,omitempty"`
-	Total    int             `json:"total,omitempty"`
-	Issues   []issueLink     `json:"issues,omitempty"`
+	JQL       string          `json:"jql"`
+	Raw       json.RawMessage `json:"raw"`
+	History   []history.Entry `json:"history"`
+	Executed  time.Time       `json:"executedAt"`
+	Analysis  string          `json:"analysis,omitempty"`
+	Total     int             `json:"total,omitempty"`
+	Issues    []issueLink     `json:"issues,omitempty"`
+	Steps     []history.Step  `json:"steps,omitempty"`
+	HistoryID string          `json:"historyId,omitempty"`
 }
 
 func (h *apiHandler) health() http.Handler {
@@ -202,6 +204,93 @@ func (h *apiHandler) projectSprints() http.Handler {
 	})
 }
 
+func (h *apiHandler) historyList() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		entries := h.history.Latest(20)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(entries)
+	})
+}
+
+func (h *apiHandler) historyItem() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/api/history/") {
+			http.NotFound(w, r)
+			return
+		}
+		trimmed := strings.TrimPrefix(r.URL.Path, "/api/history/")
+		trimmed = strings.Trim(trimmed, "/")
+		if trimmed == "" {
+			http.NotFound(w, r)
+			return
+		}
+		parts := strings.Split(trimmed, "/")
+		entryID := parts[0]
+		entry, ok := h.history.Get(entryID)
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		if len(parts) == 1 {
+			if r.Method != http.MethodGet {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(entry)
+			return
+		}
+		switch parts[1] {
+		case "search":
+			h.handleHistorySearch(w, r, entry)
+			return
+		default:
+			http.NotFound(w, r)
+			return
+		}
+	})
+}
+
+func (h *apiHandler) handleHistorySearch(w http.ResponseWriter, r *http.Request, entry history.Entry) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Query string `json:"query"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	query := strings.ToLower(strings.TrimSpace(req.Query))
+	matches := make([]history.IssueSnapshot, 0)
+	if query != "" {
+		for _, iss := range entry.Issues {
+			content := strings.ToLower(fmt.Sprintf("%s %s %s", iss.Key, iss.Title, iss.URL))
+			if strings.Contains(content, query) {
+				matches = append(matches, iss)
+			}
+		}
+	}
+	resp := struct {
+		Entry   history.Entry           `json:"entry"`
+		Matches []history.IssueSnapshot `json:"matches"`
+	}{
+		Entry:   entry,
+		Matches: matches,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+var titleDirective = regexp.MustCompile(`(?i)(?:название|названием|title)\s*[:\-]\s*(.+)`)
+var titleTruncateKeywords = []string{"проанализ", "опис", "тест", "найд", "напиш"}
+
 func (h *apiHandler) search() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -215,16 +304,22 @@ func (h *apiHandler) search() http.Handler {
 			return
 		}
 
+		titleMatch, hasTitle := extractTitleFromQuery(req.Query)
+
 		jql := strings.TrimSpace(req.JQL)
 		if jql == "" {
-			// Prefer LLM if configured.
-			if h.llm != nil {
-				if derived, err := h.llm.DeriveJQL(r.Context(), req.Query); err == nil && strings.TrimSpace(derived) != "" {
-					jql = strings.TrimSpace(derived)
+			if hasTitle {
+				jql = fmt.Sprintf(`summary ~ "\"%s\""`, escapeQuotes(titleMatch))
+			} else {
+				// Prefer LLM if configured.
+				if h.llm != nil {
+					if derived, err := h.llm.DeriveJQL(r.Context(), req.Query); err == nil && strings.TrimSpace(derived) != "" {
+						jql = strings.TrimSpace(derived)
+					}
 				}
-			}
-			if jql == "" {
-				jql = deriveJQL(req.Query)
+				if jql == "" {
+					jql = deriveJQL(req.Query)
+				}
 			}
 		}
 		if jql == "" {
@@ -299,6 +394,9 @@ func (h *apiHandler) search() http.Handler {
 			if len(req.Projects) > 0 {
 				jql = overrideProjectsClause(jql, req.Projects)
 			}
+			if len(req.Users) > 0 {
+				jql = overrideAssigneeClause(jql, req.Users)
+			}
 			jql = applyFilters(jql, nil, req.Users)
 		}
 
@@ -328,6 +426,16 @@ func (h *apiHandler) search() http.Handler {
 		}
 		total := extractTotal(raw)
 		links := extractIssueLinks(raw, h.jira.BaseURL())
+		firstIssueKey := ""
+		if len(links) > 0 {
+			firstIssueKey = links[0].Key
+		}
+		var issueDetail json.RawMessage
+		if hasTitle && firstIssueKey != "" {
+			if detail, err := fetchIssueDetail(r.Context(), h.jira, firstIssueKey); err == nil {
+				issueDetail = detail
+			}
+		}
 
 		analysisText := ""
 		if intentWorklog {
@@ -342,22 +450,29 @@ func (h *apiHandler) search() http.Handler {
 		}
 
 		// Persist history.
+		steps := buildHistorySteps(jql, raw, total, links, analysisText, titleMatch, firstIssueKey, issueDetail)
 		entry := history.Entry{
+			ID:         history.NewID(),
 			Query:      strings.TrimSpace(req.Query),
 			JQL:        jql,
 			CreatedAt:  time.Now().UTC(),
 			MaxResults: max,
+			Steps:      steps,
+			Issues:     issueLinksToSnapshots(links),
+			Analysis:   analysisText,
 		}
 		_ = h.history.Append(entry)
 
 		resp := searchResponse{
-			JQL:      jql,
-			Raw:      raw,
-			History:  h.history.Latest(10),
-			Executed: entry.CreatedAt,
-			Analysis: analysisText,
-			Total:    total,
-			Issues:   links,
+			JQL:       jql,
+			Raw:       raw,
+			History:   h.history.Latest(10),
+			Executed:  entry.CreatedAt,
+			Analysis:  analysisText,
+			Total:     total,
+			Issues:    links,
+			Steps:     steps,
+			HistoryID: entry.ID,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -400,8 +515,121 @@ func deriveJQL(query string) string {
 	return `text ~ "` + escapeQuotes(query) + `"`
 }
 
+func buildHistorySteps(jql string, raw json.RawMessage, total int, links []issueLink, analysis string, titleSearch string, firstIssueKey string, issueDetail json.RawMessage) []history.Step {
+	steps := []history.Step{
+		{
+			Name:        "Generate JQL",
+			Description: buildJQLStepDescription(titleSearch),
+			Status:      "completed",
+			Result:      marshalStepResult(map[string]string{"jql": jql}),
+		},
+		{
+			Name:        "Execute Jira search",
+			Description: fmt.Sprintf("Fetched %d issues via Jira", total),
+			Status:      "completed",
+			Result:      marshalStepResult(raw),
+		},
+	}
+	if analysis != "" {
+		steps = append(steps, history.Step{
+			Name:        "Analysis",
+			Description: "Summary generated by worklog aggregation or the LLM",
+			Status:      "completed",
+			Result:      marshalStepResult(map[string]string{"analysis": analysis}),
+		})
+	}
+	if len(issueDetail) > 0 {
+		desc := "Собрал дополнительные детали по найденной задаче"
+		if firstIssueKey != "" {
+			desc = fmt.Sprintf("Собрал дополнительные детали по задаче %s", firstIssueKey)
+		}
+		steps = append(steps, history.Step{
+			Name:        "Issue details",
+			Description: desc,
+			Status:      "completed",
+			Result:      issueDetail,
+		})
+	}
+	return steps
+}
+
+func marshalStepResult(value any) json.RawMessage {
+	if value == nil {
+		return nil
+	}
+	switch v := value.(type) {
+	case json.RawMessage:
+		return v
+	default:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil
+		}
+		return json.RawMessage(data)
+	}
+}
+
+func buildJQLStepDescription(titleSearch string) string {
+	if titleSearch == "" {
+		return "Derived from the user query and selected filters"
+	}
+	return fmt.Sprintf("Найти по названию: %s", titleSearch)
+}
+
+func extractTitleFromQuery(query string) (string, bool) {
+	matches := titleDirective.FindStringSubmatch(query)
+	if len(matches) < 2 {
+		return "", false
+	}
+	candidate := strings.TrimSpace(matches[1])
+	candidate = truncateBeforeKeywords(candidate, titleTruncateKeywords)
+	candidate = strings.Trim(candidate, `"'⟨⟩“”`)
+	candidate = strings.TrimSpace(candidate)
+	if candidate == "" {
+		return "", false
+	}
+	return candidate, true
+}
+
+func truncateBeforeKeywords(text string, keywords []string) string {
+	lower := strings.ToLower(text)
+	cut := len(text)
+	for _, kw := range keywords {
+		idx := strings.Index(lower, strings.ToLower(kw))
+		if idx >= 0 && idx < cut {
+			cut = idx
+		}
+	}
+	return strings.TrimSpace(text[:cut])
+}
+
+func fetchIssueDetail(ctx context.Context, client *jira.Client, key string) (json.RawMessage, error) {
+	if key == "" {
+		return nil, errors.New("empty issue key")
+	}
+	body, err := client.Get(ctx, fmt.Sprintf("/rest/api/2/issue/%s?fields=summary,description,status,issuetype", key))
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(body), nil
+}
+
+func issueLinksToSnapshots(links []issueLink) []history.IssueSnapshot {
+	snapshots := make([]history.IssueSnapshot, 0, len(links))
+	for _, link := range links {
+		snapshots = append(snapshots, history.IssueSnapshot{
+			Key:   link.Key,
+			Title: link.Title,
+			URL:   link.URL,
+		})
+	}
+	return snapshots
+}
+
 func escapeQuotes(s string) string {
-	return strings.ReplaceAll(s, `"`, `\"`)
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	return s
 }
 
 func applyFilters(jql string, projects, users []string) string {
@@ -621,21 +849,10 @@ func parseJiraTime(s string) (time.Time, error) {
 	return time.Time{}, lastErr
 }
 
-var reWorklogCurrentUser = regexp.MustCompile(`(?i)worklogauthor\s*=\s*currentUser\(\)`)
-
-func replaceWorklogAuthor(jql string, users []string) string {
-	if len(users) == 0 {
-		return jql
-	}
-	if reWorklogCurrentUser.MatchString(jql) {
-		return reWorklogCurrentUser.ReplaceAllString(jql, "worklogAuthor in ("+quoteList(users)+")")
-	}
-	return jql
-}
-
 var reWorklogAuthorClause = regexp.MustCompile(`(?i)(\s+(and|or)\s+)?worklogauthor\s+(in\s*\([^)]*\)|=\s*currentUser\(\))`)
 var reProjectClause = regexp.MustCompile(`(?i)project\s+in\s*\([^)]*\)`)
 var reReporterClause = regexp.MustCompile(`(?i)(\s+(and|or)\s+)?reporter\s+(in\s*\([^)]*\)|=\s*currentUser\(\))`)
+var reAssigneeClause = regexp.MustCompile(`(?i)(\s+(and|or)\s+)?assignee\s+(in\s*\([^)]*\)|=\s*[^)\s]+|=\s*"[^"]+")`)
 
 // overrideWorklogAuthor removes existing worklogAuthor clauses and sets to provided users.
 func overrideWorklogAuthor(jql string, users []string) string {
@@ -673,6 +890,19 @@ func overrideReporterClause(jql string, reporters []string) string {
 	}
 	newClause := "reporter in (" + quoteList(reporters) + ")"
 	clean := reReporterClause.ReplaceAllString(jql, "")
+	clean = normalizeClause(clean)
+	if clean == "" {
+		return newClause
+	}
+	return clean + " AND " + newClause
+}
+
+func overrideAssigneeClause(jql string, assignees []string) string {
+	if len(assignees) == 0 {
+		return jql
+	}
+	newClause := "assignee in (" + quoteList(assignees) + ")"
+	clean := reAssigneeClause.ReplaceAllString(jql, "")
 	clean = normalizeClause(clean)
 	if clean == "" {
 		return newClause

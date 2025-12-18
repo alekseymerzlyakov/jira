@@ -156,6 +156,115 @@ button:hover {
   padding: 6px 10px;
 }
 
+.steps-panel {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.step-card {
+  border: 1px solid #dfe3e8;
+  border-radius: 6px;
+  padding: 10px;
+  background: #fdfdfd;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.step-card .step-name {
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.step-card .step-status {
+  font-size: 12px;
+  color: #555;
+  text-transform: uppercase;
+}
+
+.step-card pre {
+  margin: 0;
+  background: #f5f6f8;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  max-height: 150px;
+  overflow: auto;
+}
+
+.step-card pre,
+.output,
+.steps-panel {
+  word-break: break-word;
+}
+
+.history-section {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.history-item {
+  background: #f9f9fb;
+  border: 1px solid #e1e5ec;
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.history-item button {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.history-detail {
+  border: 1px solid #dfe3e8;
+  border-radius: 6px;
+  padding: 10px;
+  background: #fff;
+  font-size: 12px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.history-detail h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+.history-detail .detail-row {
+  margin-bottom: 6px;
+}
+
+.history-detail .history-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.history-detail input {
+  width: 100%;
+}
+
 .filters {
   display: grid;
   grid-template-columns: 1fr 1fr;
