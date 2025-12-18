@@ -39,6 +39,8 @@ func main() {
 	mux.Handle("/api/search", api.search())
 	mux.Handle("/api/phrases", api.phrases())
 	mux.Handle("/api/projects/", api.projectSprints())
+	mux.Handle("/api/history", api.historyList())
+	mux.Handle("/api/history/", api.historyItem())
 
 	// Static files from web directory.
 	fs := http.FileServer(http.Dir(cfg.WebDir))
