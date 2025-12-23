@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Jira AI Search</title>
-    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/style.css?v=4" />
   </head>
   <body>
     <main class="layout">
@@ -67,6 +67,8 @@
           <div class="field">
             <label for="phraseInput">Новая/правка</label>
             <input id="phraseInput" type="text" placeholder="Например: выведи заведенные ошибки за этот месяц" />
+            <label for="phraseDesc" style="margin-top: 8px;">Description (опционально)</label>
+            <input id="phraseDesc" type="text" placeholder="Например: для отчёта по QA / авто-лог времени" />
             <div class="inline">
               <button id="phraseSave" type="button">Сохранить</button>
               <button id="phraseCancel" type="button">Сбросить выбор</button>
@@ -81,7 +83,7 @@
         </section>
       </aside>
     </main>
-    <script src="/app.js?v=1"></script>
+    <script src="/app.js?v=4"></script>
   </body>
 </html>
 

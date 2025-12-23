@@ -7,10 +7,15 @@ import (
 	"sync"
 )
 
+type Phrase struct {
+	Text        string `json:"text"`
+	Description string `json:"description,omitempty"`
+}
+
 type Store struct {
 	path string
 	mu   sync.Mutex
-	list []string
+	list []Phrase
 }
 
 func NewStore(path string) *Store {
@@ -19,29 +24,30 @@ func NewStore(path string) *Store {
 	return s
 }
 
-func (s *Store) List() []string {
+func (s *Store) List() []Phrase {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out := make([]string, len(s.list))
+	out := make([]Phrase, len(s.list))
 	copy(out, s.list)
 	return out
 }
 
-// Replace overwrites the store with provided phrases (dedup + trim empties).
-func (s *Store) Replace(list []string) error {
+// Replace overwrites the store with provided phrases (dedup by Text + trim empties).
+func (s *Store) Replace(list []Phrase) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	uniq := make([]string, 0, len(list))
+	uniq := make([]Phrase, 0, len(list))
 	seen := map[string]struct{}{}
 	for _, v := range list {
-		v = trim(v)
-		if v == "" {
+		v.Text = trim(v.Text)
+		v.Description = trim(v.Description)
+		if v.Text == "" {
 			continue
 		}
-		if _, ok := seen[v]; ok {
+		if _, ok := seen[v.Text]; ok {
 			continue
 		}
-		seen[v] = struct{}{}
+		seen[v.Text] = struct{}{}
 		uniq = append(uniq, v)
 	}
 	s.list = uniq
@@ -53,7 +59,28 @@ func (s *Store) load() error {
 	if err != nil {
 		return nil // ignore missing
 	}
-	return json.Unmarshal(data, &s.list)
+	// New format: []Phrase
+	var phrases []Phrase
+	if err := json.Unmarshal(data, &phrases); err == nil {
+		s.list = phrases
+		return nil
+	}
+	// Legacy format: []string
+	var legacy []string
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		return nil
+	}
+	out := make([]Phrase, 0, len(legacy))
+	for _, t := range legacy {
+		t = trim(t)
+		if t == "" {
+			continue
+		}
+		out = append(out, Phrase{Text: t})
+	}
+	s.list = out
+	_ = s.save()
+	return nil
 }
 
 func (s *Store) save() error {

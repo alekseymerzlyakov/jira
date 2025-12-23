@@ -20,11 +20,12 @@ const jqlInput = document.getElementById("jql");
 let allProjects = [];
 const phrasesList = document.getElementById("phrasesList");
 const phraseInput = document.getElementById("phraseInput");
+const phraseDesc = document.getElementById("phraseDesc");
 const phraseSaveBtn = document.getElementById("phraseSave");
 const phraseCancelBtn = document.getElementById("phraseCancel");
 let phrases = [];
 let editIndex = null;
-let selectedPhrase = null;
+let selectedPhraseText = null;
 const sprintsBox = document.getElementById("sprintsBox");
 let projectSprints = [];
 let selectedSprintId = 0;
@@ -69,8 +70,8 @@ runBtn.addEventListener("click", async () => {
 
 async function runSearch(dryRun) {
   const q = getQueryValue();
-  if (isWorklogAutofillQuery(q)) {
-    await runWorklogAutofill(dryRun, q);
+  if (isWorklogQuery(q)) {
+    await runWorklogCommand(dryRun, q);
     return;
   }
 
@@ -114,70 +115,80 @@ async function runSearch(dryRun) {
   }
 }
 
-async function runWorklogAutofill(dryRun, queryText) {
-  const issue = extractIssueFromText(queryText);
-  if (!issue) {
-    statusEl.textContent = "Ошибка: не удалось найти ключ задачи (например QA-959) или ссылку /browse/...";
-    return;
-  }
-  statusEl.textContent = dryRun ? "Previewing plan..." : "Creating worklogs...";
+async function runWorklogCommand(dryRun, queryText, durationText = "", dateText = "") {
+  statusEl.textContent = dryRun ? "Previewing..." : "Running...";
   outputEl.textContent = "";
   jqlInput.value = "";
+
   try {
-    const res = await fetch("/api/worklog/autofill", {
+    const res = await fetch("/api/worklog/command", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        issue,
+        query: queryText,
         dryRun,
         comment: "Auto log",
+        durationText,
+        dateText,
       }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 422 && data.question) {
+      const def = data.default || "";
+      const answer = window.prompt(data.question, def);
+      if (data.need === "duration") {
+        if (answer && answer.trim()) {
+          await runWorklogCommand(dryRun, queryText, answer.trim(), dateText);
+        }
+        return;
+      }
+      if (data.need === "date") {
+        const v = answer && answer.trim() ? answer.trim() : def || "сегодня";
+        await runWorklogCommand(dryRun, queryText, durationText, v);
+        return;
+      }
+      return;
+    }
     if (!res.ok) {
       throw new Error(data.error || res.statusText);
     }
 
-    const steps = [
-      {
-        name: "Detect command",
-        description: "Worklog autofill command detected in query",
-        status: "completed",
-        result: { issue },
-      },
-      {
-        name: dryRun ? "Preview plan" : "Apply plan",
-        description: dryRun ? "No changes were made (dry-run)" : "Missing worklogs were created",
-        status: "completed",
-        result: {
-          issueKey: data.issueKey,
-          from: data.from,
-          to: data.to,
-          timeZone: data.timeZone,
-          created: data.created,
-          skipped: data.skipped,
-        },
-      },
-    ];
-    renderSteps(steps);
+    if (data.kind === "autofill" && data.autofill) {
+      const af = data.autofill;
+      renderSteps([
+        { name: "Detect command", status: "completed", result: { kind: "autofill", issue: af.issueKey } },
+        { name: dryRun ? "Preview plan" : "Apply plan", status: "completed", result: { from: af.from, to: af.to, timeZone: af.timeZone, created: af.created, skipped: af.skipped } },
+      ]);
+      const lines = [];
+      lines.push(`Worklog autofill for: ${af.issueKey}`);
+      lines.push(`Range: ${af.from} .. ${af.to} (${af.timeZone})`);
+      lines.push(`Mode: ${dryRun ? "DRY RUN (preview)" : "APPLY"}`);
+      lines.push(`Created: ${af.created}`);
+      lines.push(`Skipped: ${af.skipped}`);
+      lines.push("");
+      lines.push("Days:");
+      (af.days || []).forEach((d) => {
+        const idPart = d.worklogId ? ` id=${d.worklogId}` : "";
+        const reason = d.reason ? ` (${d.reason})` : "";
+        lines.push(`${d.date} ${d.weekday} — ${d.timeSpent} @ ${d.started} => ${d.action}${reason}${idPart}`);
+      });
+      outputEl.textContent = lines.join("\n");
+      statusEl.textContent = dryRun ? "Preview plan ready" : "OK, worklogs created";
+      return;
+    }
 
-    const lines = [];
-    lines.push(`Worklog autofill for: ${data.issueKey}`);
-    lines.push(`Range: ${data.from} .. ${data.to} (${data.timeZone})`);
-    lines.push(`Mode: ${dryRun ? "DRY RUN (preview)" : "APPLY"}`);
-    lines.push(`Created: ${data.created}`);
-    lines.push(`Skipped: ${data.skipped}`);
-    lines.push("");
-    lines.push("Days:");
-    (data.days || []).forEach((d) => {
-      const idPart = d.worklogId ? ` id=${d.worklogId}` : "";
-      const reason = d.reason ? ` (${d.reason})` : "";
-      lines.push(
-        `${d.date} ${d.weekday} — ${d.timeSpent} @ ${d.started} => ${d.action}${reason}${idPart}`
-      );
-    });
-    outputEl.textContent = lines.join("\n");
-    statusEl.textContent = dryRun ? "Preview plan ready" : "OK, worklogs created";
+    // single
+    renderSteps([
+      { name: "Detect command", status: "completed", result: { kind: "single", issue: data.issueKey } },
+      { name: dryRun ? "Preview worklog" : "Create worklog", status: "completed", result: { date: data.date, timeSpent: data.timeSpent, started: data.started, timeZone: data.timeZone, worklogId: data.worklogId || "" } },
+    ]);
+    outputEl.textContent =
+      `Worklog: ${data.issueKey}\n` +
+      `Date: ${data.date} (${data.timeZone})\n` +
+      `Time: ${data.timeSpent}\n` +
+      `Started: ${data.started}\n` +
+      (data.worklogId ? `WorklogID: ${data.worklogId}\n` : "");
+    statusEl.textContent = dryRun ? "Preview ready" : "OK, worklog created";
   } catch (err) {
     statusEl.textContent = `Error: ${err.message}`;
   }
@@ -382,21 +393,21 @@ function renderSprints(list, hasProject = false) {
 }
 
 function getQueryValue() {
-  return selectedPhrase || queryInput.value;
+  return selectedPhraseText || queryInput.value;
 }
 
 function isWorklogAutofillQuery(text) {
   const q = (text || "").toLowerCase();
   if (!q) return false;
   if (!extractIssueFromText(text)) return false;
-  return (
-    q.includes("залог") ||
-    q.includes("логир") ||
-    q.includes("worklog") ||
-    q.includes("спиш") ||
-    q.includes("time log") ||
-    q.includes("log time")
-  );
+  return q.includes("каждый рабоч") || q.includes("за каждый рабоч") || q.includes("понедельник") || q.includes("вторник") || q.includes("среда") || q.includes("четверг") || q.includes("пятница");
+}
+
+function isWorklogQuery(text) {
+  const q = (text || "").toLowerCase();
+  if (!q) return false;
+  if (!extractIssueFromText(text)) return false;
+  return q.includes("залог") || q.includes("логир") || q.includes("worklog") || q.includes("спиш") || q.includes("time log") || q.includes("log time");
 }
 
 function extractIssueFromText(text) {
@@ -419,11 +430,18 @@ function extractIssueFromText(text) {
 function updateActionButtons() {
   const q = getQueryValue();
   const isAutofill = isWorklogAutofillQuery(q);
-  previewBtn.textContent = isAutofill ? "Preview plan" : "Preview JQL";
-  runBtn.textContent = isAutofill ? "Go (create worklogs)" : "Search";
-  // Analysis/raw flags don't apply to worklog autofill.
-  if (analysisFlag) analysisFlag.disabled = isAutofill;
-  if (showRawFlag) showRawFlag.disabled = isAutofill;
+  const isWorklog = isWorklogQuery(q);
+  if (isWorklog) {
+    previewBtn.textContent = isAutofill ? "Preview plan" : "Preview worklog";
+    runBtn.textContent = isAutofill ? "Go (create worklogs)" : "Go (log time)";
+    if (analysisFlag) analysisFlag.disabled = true;
+    if (showRawFlag) showRawFlag.disabled = true;
+  } else {
+    previewBtn.textContent = "Preview JQL";
+    runBtn.textContent = "Search";
+    if (analysisFlag) analysisFlag.disabled = false;
+    if (showRawFlag) showRawFlag.disabled = false;
+  }
 }
 
 async function loadPhrases() {
@@ -434,7 +452,18 @@ async function loadPhrases() {
       return;
     }
     const data = await res.json();
-    phrases = Array.isArray(data) ? data : [];
+    if (!Array.isArray(data)) {
+      phrases = [];
+      return;
+    }
+    // Back-compat: server used to return array of strings.
+    if (data.length && typeof data[0] === "string") {
+      phrases = data.map((t) => ({ text: String(t), description: "" }));
+      return;
+    }
+    phrases = data
+      .filter((p) => p && typeof p.text === "string")
+      .map((p) => ({ text: p.text, description: p.description || "" }));
   } catch {
     phrases = [];
   }
@@ -442,13 +471,22 @@ async function loadPhrases() {
 
 async function savePhrases() {
   try {
-    await fetch("/api/phrases", {
+    const res = await fetch("/api/phrases", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phrases }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const msg = data.error || res.statusText || `HTTP ${res.status}`;
+      statusEl.textContent = `Не удалось сохранить фразы: ${msg}`;
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error("savePhrases", err);
+    statusEl.textContent = `Не удалось сохранить фразы: ${err.message}`;
+    return false;
   }
 }
 
@@ -456,21 +494,36 @@ function renderPhrases() {
   phrasesList.innerHTML = "";
   phrases.forEach((p, idx) => {
     const li = document.createElement("li");
-    const text = document.createElement("span");
-    text.className = "text";
-    text.textContent = p;
+    li.className = selectedPhraseText === p.text ? "phrase-item selected" : "phrase-item";
+    const left = document.createElement("div");
+    left.className = "phrase-left";
+
+    const title = document.createElement("div");
+    title.className = "phrase-title";
+    title.textContent = p.text;
+
+    const desc = document.createElement("div");
+    desc.className = "phrase-desc";
+    desc.textContent = p.description ? `(${p.description})` : "";
+
+    left.appendChild(title);
+    if (p.description) {
+      left.appendChild(desc);
+    }
+
     const actions = document.createElement("div");
-    actions.className = "actions";
+    actions.className = "phrase-actions";
     const selectBtn = document.createElement("button");
-    selectBtn.textContent = selectedPhrase === p ? "Снять выбор" : "Выбрать";
+    selectBtn.className = "phrase-btn primary";
+    selectBtn.textContent = selectedPhraseText === p.text ? "Снять выбор" : "Выбрать";
     selectBtn.addEventListener("click", () => {
-      if (selectedPhrase === p) {
-        selectedPhrase = null;
+      if (selectedPhraseText === p.text) {
+        selectedPhraseText = null;
         queryInput.disabled = false;
         jqlInput.value = "";
       } else {
-        selectedPhrase = p;
-        queryInput.value = p;
+        selectedPhraseText = p.text;
+        queryInput.value = p.text;
         queryInput.disabled = true;
         jqlInput.value = "";
       }
@@ -478,17 +531,20 @@ function renderPhrases() {
       renderPhrases();
     });
     const editBtn = document.createElement("button");
+    editBtn.className = "phrase-btn";
     editBtn.textContent = "Редакт.";
     editBtn.addEventListener("click", () => {
-      phraseInput.value = p;
+      phraseInput.value = p.text;
+      if (phraseDesc) phraseDesc.value = p.description || "";
       editIndex = idx;
     });
     const delBtn = document.createElement("button");
+    delBtn.className = "phrase-btn danger";
     delBtn.textContent = "Удалить";
     delBtn.addEventListener("click", async () => {
       phrases.splice(idx, 1);
-      if (selectedPhrase === p) {
-        selectedPhrase = null;
+      if (selectedPhraseText === p.text) {
+        selectedPhraseText = null;
         queryInput.disabled = false;
       }
       await savePhrases();
@@ -497,11 +553,11 @@ function renderPhrases() {
     actions.appendChild(selectBtn);
     actions.appendChild(editBtn);
     actions.appendChild(delBtn);
-    li.appendChild(text);
+    li.appendChild(left);
     li.appendChild(actions);
     phrasesList.appendChild(li);
   });
-  if (!selectedPhrase) {
+  if (!selectedPhraseText) {
     queryInput.disabled = false;
   }
   updateActionButtons();
@@ -510,22 +566,27 @@ function renderPhrases() {
 phraseSaveBtn.addEventListener("click", async () => {
   const val = phraseInput.value.trim();
   if (!val) return;
+  const desc = phraseDesc ? phraseDesc.value.trim() : "";
   if (editIndex !== null) {
-    phrases[editIndex] = val;
+    phrases[editIndex] = { text: val, description: desc };
     editIndex = null;
   } else {
-    phrases.push(val);
+    phrases.push({ text: val, description: desc });
   }
   phraseInput.value = "";
-  await savePhrases();
+  if (phraseDesc) phraseDesc.value = "";
+  const ok = await savePhrases();
+  if (!ok) return;
+  await loadPhrases();
   renderPhrases();
 });
 
 phraseCancelBtn.addEventListener("click", () => {
-  selectedPhrase = null;
+  selectedPhraseText = null;
   queryInput.disabled = false;
   editIndex = null;
   phraseInput.value = "";
+  if (phraseDesc) phraseDesc.value = "";
   jqlInput.value = "";
   renderPhrases();
 });

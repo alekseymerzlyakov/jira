@@ -39,6 +39,7 @@ func main() {
 	mux.Handle("/api/projects", api.projects())
 	mux.Handle("/api/search", api.search())
 	mux.Handle("/api/phrases", api.phrases())
+	mux.Handle("/api/worklog/command", api.worklogCommand())
 	mux.Handle("/api/worklog/autofill", api.worklogAutofill())
 	mux.Handle("/api/projects/", api.projectSprints())
 	mux.Handle("/api/history", api.historyList())

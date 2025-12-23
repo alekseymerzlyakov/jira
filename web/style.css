@@ -130,31 +130,98 @@ button:hover {
   max-height: 320px;
   overflow-y: auto;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .phrases-list li {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
   align-items: flex-start;
-  gap: 4px;
-  padding: 6px 0;
-  border-bottom: 1px solid #eceff4;
-  font-size: 13px;
+  gap: 12px;
+  padding: 12px 12px;
+  border: 1px solid #e8edf5;
+  border-radius: 12px;
+  background: #ffffff;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
 }
 
-.phrases-list .text {
-  flex: 1;
+.phrases-list li:hover {
+  border-color: #d7e3ff;
+  box-shadow: 0 6px 14px rgba(16, 24, 40, 0.10);
+}
+
+.phrases-list .phrase-left {
+  min-width: 0;
+}
+
+.phrases-list .phrase-title {
+  word-break: break-word;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #0f172a;
+}
+
+.phrases-list .phrase-desc {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  color: #64748b;
   word-break: break-word;
 }
 
-.phrases-list .actions {
-  display: flex;
-  gap: 8px;
+.phrases-list li.selected {
+  background: linear-gradient(180deg, #eef4ff, #e4eeff);
+  border-color: #2f6fed;
+  box-shadow: 0 10px 22px rgba(47, 111, 237, 0.18);
 }
 
-.phrases-list button {
+.phrases-list li.selected .phrase-title {
+  color: #0b3fb3;
+}
+
+.phrases-list .phrase-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.phrases-list .phrase-btn {
   padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  border: 1px solid #d0d7e2;
+  background: #ffffff;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.phrases-list .phrase-btn:hover {
+  background: #f3f6fb;
+  border-color: #b9c7dd;
+}
+
+.phrases-list .phrase-btn.primary {
+  border-color: #2f6fed;
+  color: #2f6fed;
+  font-weight: 700;
+}
+
+.phrases-list li.selected .phrase-btn.primary {
+  background: #2f6fed;
+  border-color: #2f6fed;
+  color: #ffffff;
+}
+
+.phrases-list .phrase-btn.danger {
+  border-color: #f1c0c0;
+  color: #b42318;
+}
+
+.phrases-list .phrase-btn.danger:hover {
+  background: #fff2f2;
 }
 
 .steps-panel {

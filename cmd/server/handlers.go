@@ -14,6 +14,7 @@ import (
 
 	"github.com/alekseymerzlyakov/jira/internal/history"
 	"github.com/alekseymerzlyakov/jira/internal/jira"
+	"github.com/alekseymerzlyakov/jira/internal/phrases"
 )
 
 type searchRequest struct {
@@ -111,6 +112,36 @@ func (h *apiHandler) projects() http.Handler {
 	})
 }
 
+type worklogCommandRequest struct {
+	Query        string `json:"query"`
+	DryRun       bool   `json:"dryRun"`
+	Comment      string `json:"comment,omitempty"`
+	DurationText string `json:"durationText,omitempty"` // optional override from UI prompt, e.g. "30m"
+	DateText     string `json:"dateText,omitempty"`     // optional override from UI prompt, e.g. "сегодня" or "2025-12-23"
+}
+
+type worklogCommandResponse struct {
+	Kind     string `json:"kind"` // "single" | "autofill"
+	IssueKey string `json:"issueKey"`
+	DryRun   bool   `json:"dryRun"`
+
+	// Single
+	Date             string `json:"date,omitempty"` // YYYY-MM-DD (Europe/Kiev)
+	TimeZone         string `json:"timeZone,omitempty"`
+	TimeSpent        string `json:"timeSpent,omitempty"`
+	TimeSpentSeconds int    `json:"timeSpentSeconds,omitempty"`
+	Started          string `json:"started,omitempty"`   // RFC3339
+	WorklogID        string `json:"worklogId,omitempty"` // when created
+
+	// Autofill
+	Autofill *worklogAutofillResponse `json:"autofill,omitempty"`
+
+	// Clarification
+	Question string `json:"question,omitempty"`
+	Need     string `json:"need,omitempty"`    // "duration" | "date"
+	Default  string `json:"default,omitempty"` // suggested answer
+}
+
 func (h *apiHandler) phrases() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -120,7 +151,7 @@ func (h *apiHandler) phrases() http.Handler {
 			_ = json.NewEncoder(w).Encode(list)
 		case http.MethodPost:
 			var payload struct {
-				Phrases []string `json:"phrases"`
+				Phrases []phrases.Phrase `json:"phrases"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 				http.Error(w, "invalid json", http.StatusBadRequest)
@@ -136,6 +167,140 @@ func (h *apiHandler) phrases() http.Handler {
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
+	})
+}
+
+func (h *apiHandler) worklogCommand() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req worklogCommandRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondError(w, http.StatusBadRequest, errors.New("invalid json"), "")
+			return
+		}
+		q := strings.TrimSpace(req.Query)
+		if q == "" {
+			respondError(w, http.StatusBadRequest, errors.New("query is required"), "")
+			return
+		}
+
+		// If query contains monthly/autofill hints - route to autofill.
+		if isAutofillText(q) {
+			issue := extractIssueFromTextAny(q)
+			if issue == "" {
+				respondError(w, http.StatusBadRequest, errors.New("cannot find issue key/url in query"), "")
+				return
+			}
+			issueKey := extractIssueKey(issue)
+			if issueKey == "" {
+				respondError(w, http.StatusBadRequest, errors.New("invalid issue key/url"), "")
+				return
+			}
+			af, status, err := h.runWorklogAutofill(r.Context(), issueKey, req.DryRun, req.Comment)
+			if err != nil {
+				respondError(w, status, err, "")
+				return
+			}
+			resp := worklogCommandResponse{
+				Kind:     "autofill",
+				IssueKey: af.IssueKey,
+				DryRun:   req.DryRun,
+				Autofill: &af,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		issue := extractIssueFromTextAny(q)
+		if issue == "" {
+			respondError(w, http.StatusBadRequest, errors.New("cannot find issue key/url in query"), "")
+			return
+		}
+		issueKey := extractIssueKey(issue)
+		if issueKey == "" {
+			respondError(w, http.StatusBadRequest, errors.New("invalid issue key/url"), "")
+			return
+		}
+
+		durSource := q
+		if strings.TrimSpace(req.DurationText) != "" {
+			durSource = req.DurationText
+		}
+		secs, ok := parseDurationSeconds(durSource)
+		if !ok || secs <= 0 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_ = json.NewEncoder(w).Encode(worklogCommandResponse{
+				Kind:     "single",
+				IssueKey: issueKey,
+				DryRun:   req.DryRun,
+				Question: "Сколько времени списать? (например: 10m, 30 минут, 1h 30m)",
+				Need:     "duration",
+			})
+			return
+		}
+
+		loc, err := time.LoadLocation("Europe/Kiev")
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Errorf("load tz: %w", err), "")
+			return
+		}
+		now := time.Now().In(loc)
+
+		// Date resolution: from query text or explicit UI override; otherwise ask.
+		dateSource := q
+		if strings.TrimSpace(req.DateText) != "" {
+			dateSource = req.DateText
+		}
+		dayDate, ok := parseDateKiev(dateSource, now, loc)
+		if !ok && strings.TrimSpace(req.DateText) == "" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_ = json.NewEncoder(w).Encode(worklogCommandResponse{
+				Kind:     "single",
+				IssueKey: issueKey,
+				DryRun:   req.DryRun,
+				Question: "За какой день списать? (сегодня / вчера / YYYY-MM-DD / DD.MM.YYYY)",
+				Need:     "date",
+				Default:  "сегодня",
+			})
+			return
+		}
+		if !ok {
+			dayDate = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+		}
+		started := time.Date(dayDate.Year(), dayDate.Month(), dayDate.Day(), 9, 0, 0, 0, loc)
+
+		resp := worklogCommandResponse{
+			Kind:             "single",
+			IssueKey:         issueKey,
+			DryRun:           req.DryRun,
+			Date:             started.Format("2006-01-02"),
+			TimeZone:         "Europe/Kiev",
+			TimeSpentSeconds: secs,
+			TimeSpent:        formatDuration(secs),
+			Started:          started.Format(time.RFC3339),
+		}
+
+		if !req.DryRun {
+			body, st, err := h.jira.AddWorklog(r.Context(), issueKey, started, secs, req.Comment)
+			if err != nil {
+				respondErrorWithBody(w, st, fmt.Errorf("add worklog: %w", err), body, "")
+				return
+			}
+			var created struct {
+				ID string `json:"id"`
+			}
+			_ = json.Unmarshal(body, &created)
+			resp.WorklogID = created.ID
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
 	})
 }
 
@@ -156,105 +321,205 @@ func (h *apiHandler) worklogAutofill() http.Handler {
 			return
 		}
 
-		loc, err := time.LoadLocation("Europe/Kiev")
+		resp, status, err := h.runWorklogAutofill(r.Context(), issueKey, req.DryRun, req.Comment)
 		if err != nil {
-			respondError(w, http.StatusInternalServerError, fmt.Errorf("load tz: %w", err), "")
+			respondError(w, status, err, "")
 			return
 		}
-		now := time.Now().In(loc)
-		from := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
-		to := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
-
-		worklogs, status, err := h.jira.ListWorklogs(r.Context(), issueKey)
-		if err != nil {
-			respondError(w, status, fmt.Errorf("list worklogs: %w", err), "")
-			return
-		}
-
-		currentUser := strings.TrimSpace(h.jira.User())
-		// existingDays: YYYY-MM-DD (Europe/Kiev) -> true
-		existingDays := map[string]bool{}
-		for _, wl := range worklogs {
-			if currentUser != "" && !strings.EqualFold(strings.TrimSpace(wl.Author.Name), currentUser) {
-				continue
-			}
-			t, err := jira.ParseJiraTime(wl.Started)
-			if err != nil {
-				continue
-			}
-			day := t.In(loc).Format("2006-01-02")
-			// only count within [from..to] in Kiev date terms
-			if day < from.Format("2006-01-02") || day > to.Format("2006-01-02") {
-				continue
-			}
-			existingDays[day] = true
-		}
-
-		weekdaySeconds := map[time.Weekday]int{
-			time.Monday:    30 * 60,
-			time.Tuesday:   45 * 60,
-			time.Wednesday: 30 * 60,
-			time.Thursday:  90 * 60,
-			time.Friday:    30 * 60,
-		}
-
-		var resp worklogAutofillResponse
-		resp.IssueKey = issueKey
-		resp.From = from.Format("2006-01-02")
-		resp.To = to.Format("2006-01-02")
-		resp.TimeZone = "Europe/Kiev"
-		resp.DryRun = req.DryRun
-
-		for d := from; !d.After(to); d = d.AddDate(0, 0, 1) {
-			secs, ok := weekdaySeconds[d.Weekday()]
-			dayStr := d.Format("2006-01-02")
-			day := worklogAutofillDay{
-				Date:             dayStr,
-				Weekday:          d.Weekday().String(),
-				TimeSpentSeconds: secs,
-				TimeSpent:        formatDuration(secs),
-				Started:          time.Date(d.Year(), d.Month(), d.Day(), 9, 0, 0, 0, loc).Format(time.RFC3339),
-			}
-			if !ok {
-				day.Action = "skip"
-				day.Reason = "weekend"
-				resp.Skipped++
-				resp.Days = append(resp.Days, day)
-				continue
-			}
-			if existingDays[dayStr] {
-				day.Action = "skip"
-				day.Reason = "already has worklog for this day"
-				resp.Skipped++
-				resp.Days = append(resp.Days, day)
-				continue
-			}
-
-			day.Action = "create"
-			if !req.DryRun {
-				started := time.Date(d.Year(), d.Month(), d.Day(), 9, 0, 0, 0, loc)
-				createdBody, st, err := h.jira.AddWorklog(r.Context(), issueKey, started, secs, req.Comment)
-				if err != nil {
-					respondErrorWithBody(w, st, fmt.Errorf("add worklog %s: %w", dayStr, err), createdBody, "")
-					return
-				}
-				var created struct {
-					ID string `json:"id"`
-				}
-				_ = json.Unmarshal(createdBody, &created)
-				day.WorklogID = created.ID
-				resp.Created++
-			} else {
-				resp.Created++
-			}
-			resp.Days = append(resp.Days, day)
-		}
-
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
 	})
 }
 
+func (h *apiHandler) runWorklogAutofill(ctx context.Context, issueKey string, dryRun bool, comment string) (worklogAutofillResponse, int, error) {
+	loc, err := time.LoadLocation("Europe/Kiev")
+	if err != nil {
+		return worklogAutofillResponse{}, http.StatusInternalServerError, fmt.Errorf("load tz: %w", err)
+	}
+	now := time.Now().In(loc)
+	from := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+	to := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+	worklogs, status, err := h.jira.ListWorklogs(ctx, issueKey)
+	if err != nil {
+		return worklogAutofillResponse{}, status, fmt.Errorf("list worklogs: %w", err)
+	}
+
+	currentUser := strings.TrimSpace(h.jira.User())
+	// existingDays: YYYY-MM-DD (Europe/Kiev) -> true
+	existingDays := map[string]bool{}
+	for _, wl := range worklogs {
+		if currentUser != "" && !strings.EqualFold(strings.TrimSpace(wl.Author.Name), currentUser) {
+			continue
+		}
+		t, err := jira.ParseJiraTime(wl.Started)
+		if err != nil {
+			continue
+		}
+		day := t.In(loc).Format("2006-01-02")
+		if day < from.Format("2006-01-02") || day > to.Format("2006-01-02") {
+			continue
+		}
+		existingDays[day] = true
+	}
+
+	weekdaySeconds := map[time.Weekday]int{
+		time.Monday:    30 * 60,
+		time.Tuesday:   45 * 60,
+		time.Wednesday: 30 * 60,
+		time.Thursday:  90 * 60,
+		time.Friday:    30 * 60,
+	}
+
+	var resp worklogAutofillResponse
+	resp.IssueKey = issueKey
+	resp.From = from.Format("2006-01-02")
+	resp.To = to.Format("2006-01-02")
+	resp.TimeZone = "Europe/Kiev"
+	resp.DryRun = dryRun
+
+	for d := from; !d.After(to); d = d.AddDate(0, 0, 1) {
+		secs, ok := weekdaySeconds[d.Weekday()]
+		dayStr := d.Format("2006-01-02")
+		day := worklogAutofillDay{
+			Date:             dayStr,
+			Weekday:          d.Weekday().String(),
+			TimeSpentSeconds: secs,
+			TimeSpent:        formatDuration(secs),
+			Started:          time.Date(d.Year(), d.Month(), d.Day(), 9, 0, 0, 0, loc).Format(time.RFC3339),
+		}
+		if !ok {
+			day.Action = "skip"
+			day.Reason = "weekend"
+			resp.Skipped++
+			resp.Days = append(resp.Days, day)
+			continue
+		}
+		if existingDays[dayStr] {
+			day.Action = "skip"
+			day.Reason = "already has worklog for this day"
+			resp.Skipped++
+			resp.Days = append(resp.Days, day)
+			continue
+		}
+
+		day.Action = "create"
+		if !dryRun {
+			started := time.Date(d.Year(), d.Month(), d.Day(), 9, 0, 0, 0, loc)
+			createdBody, st, err := h.jira.AddWorklog(ctx, issueKey, started, secs, comment)
+			if err != nil {
+				return worklogAutofillResponse{}, st, fmt.Errorf("add worklog %s: %w body=%s", dayStr, err, string(createdBody))
+			}
+			var created struct {
+				ID string `json:"id"`
+			}
+			_ = json.Unmarshal(createdBody, &created)
+			day.WorklogID = created.ID
+			resp.Created++
+		} else {
+			resp.Created++
+		}
+		resp.Days = append(resp.Days, day)
+	}
+
+	return resp, http.StatusOK, nil
+}
+
+func isAutofillText(text string) bool {
+	l := strings.ToLower(text)
+	return strings.Contains(l, "каждый рабоч") ||
+		strings.Contains(l, "за каждый рабоч") ||
+		strings.Contains(l, "понедельник") ||
+		strings.Contains(l, "вторник") ||
+		strings.Contains(l, "среда") ||
+		strings.Contains(l, "четверг") ||
+		strings.Contains(l, "пятница") ||
+		strings.Contains(l, "за текущий месяц") && strings.Contains(l, "каждый")
+}
+
+func extractIssueFromTextAny(text string) string {
+	// Try to find a browse URL first
+	reURL := regexp.MustCompile(`https?://[^\s]+/browse/[A-Za-z][A-Za-z0-9]+\s*-\s*\d+`)
+	if m := reURL.FindString(text); m != "" {
+		return m
+	}
+	// Otherwise, just issue key
+	reKey := regexp.MustCompile(`\b[A-Za-z][A-Za-z0-9]+\s*-\s*\d+\b`)
+	if m := reKey.FindString(text); m != "" {
+		return m
+	}
+	return ""
+}
+
+func parseDurationSeconds(text string) (int, bool) {
+	// Normalize hyphens and lowercase
+	s := strings.ToLower(strings.NewReplacer("‐", "-", "‑", "-", "–", "-", "—", "-", "−", "-").Replace(text))
+	// Patterns: 10m, 10 min, 10 минут, 1h, 1h 30m, 1:30? (not yet)
+	reHM := regexp.MustCompile(`(?i)(\d+)\s*(h|час|часа|часов|hour|hours)\b`)
+	reMM := regexp.MustCompile(`(?i)(\d+)\s*(m|min|mins|minute|minutes|мин|минут|минута|минуты)\b`)
+	total := 0
+	found := false
+	for _, m := range reHM.FindAllStringSubmatch(s, -1) {
+		if len(m) >= 2 {
+			if n, err := strconv.Atoi(m[1]); err == nil {
+				total += n * 3600
+				found = true
+			}
+		}
+	}
+	for _, m := range reMM.FindAllStringSubmatch(s, -1) {
+		if len(m) >= 2 {
+			if n, err := strconv.Atoi(m[1]); err == nil {
+				total += n * 60
+				found = true
+			}
+		}
+	}
+	return total, found
+}
+
+func parseDateKiev(text string, now time.Time, loc *time.Location) (time.Time, bool) {
+	s := strings.ToLower(strings.TrimSpace(text))
+	if s == "" {
+		return time.Time{}, false
+	}
+	if strings.Contains(s, "сегодня") || strings.Contains(s, "today") {
+		return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc), true
+	}
+	if strings.Contains(s, "вчера") || strings.Contains(s, "yesterday") {
+		d := now.AddDate(0, 0, -1)
+		return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, loc), true
+	}
+
+	// YYYY-MM-DD
+	reISO := regexp.MustCompile(`\b(\d{4})-(\d{2})-(\d{2})\b`)
+	if m := reISO.FindStringSubmatch(s); len(m) == 4 {
+		y, _ := strconv.Atoi(m[1])
+		mo, _ := strconv.Atoi(m[2])
+		da, _ := strconv.Atoi(m[3])
+		t := time.Date(y, time.Month(mo), da, 0, 0, 0, 0, loc)
+		if t.Year() == y && int(t.Month()) == mo && t.Day() == da {
+			return t, true
+		}
+	}
+
+	// DD.MM.YYYY or DD.MM
+	reDMY := regexp.MustCompile(`\b(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?\b`)
+	if m := reDMY.FindStringSubmatch(s); len(m) >= 3 {
+		da, _ := strconv.Atoi(m[1])
+		mo, _ := strconv.Atoi(m[2])
+		y := now.Year()
+		if len(m) == 4 && m[3] != "" {
+			y, _ = strconv.Atoi(m[3])
+		}
+		t := time.Date(y, time.Month(mo), da, 0, 0, 0, 0, loc)
+		if t.Year() == y && int(t.Month()) == mo && t.Day() == da {
+			return t, true
+		}
+	}
+
+	return time.Time{}, false
+}
 func (h *apiHandler) projectSprints() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
