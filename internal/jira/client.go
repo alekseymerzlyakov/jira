@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -145,6 +146,83 @@ func (c *Client) Get(ctx context.Context, p string) ([]byte, error) {
 		return body, fmt.Errorf("status %d: %w", status, err)
 	}
 	return body, nil
+}
+
+type Worklog struct {
+	ID               string
+	TimeSpentSeconds int
+	Started          string
+	Author           struct {
+		Name string `json:"name"`
+	} `json:"author"`
+}
+
+// ListWorklogs returns all worklog entries for an issue (paged).
+func (c *Client) ListWorklogs(ctx context.Context, issueKey string) ([]Worklog, int, error) {
+	const pageSize = 1000
+	startAt := 0
+	var out []Worklog
+	var lastStatus int
+
+	for {
+		endpoint := fmt.Sprintf("/rest/api/2/issue/%s/worklog?startAt=%d&maxResults=%d", url.PathEscape(issueKey), startAt, pageSize)
+		body, status, err := c.get(ctx, endpoint)
+		lastStatus = status
+		if err != nil {
+			return nil, status, err
+		}
+		var resp struct {
+			StartAt    int       `json:"startAt"`
+			MaxResults int       `json:"maxResults"`
+			Total      int       `json:"total"`
+			Worklogs   []Worklog `json:"worklogs"`
+		}
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return nil, status, err
+		}
+		out = append(out, resp.Worklogs...)
+		startAt = resp.StartAt + resp.MaxResults
+		if startAt >= resp.Total || resp.MaxResults == 0 {
+			break
+		}
+	}
+	return out, lastStatus, nil
+}
+
+// AddWorklog adds a worklog entry to an issue.
+func (c *Client) AddWorklog(ctx context.Context, issueKey string, started time.Time, timeSpentSeconds int, comment string) ([]byte, int, error) {
+	// Jira commonly expects: 2025-12-18T08:09:00.000+0200
+	startedStr := started.Format("2006-01-02T15:04:05.000-0700")
+	payload := map[string]any{
+		"started":          startedStr,
+		"timeSpentSeconds": timeSpentSeconds,
+	}
+	if comment != "" {
+		payload["comment"] = comment
+	}
+	endpoint := fmt.Sprintf("/rest/api/2/issue/%s/worklog", url.PathEscape(issueKey))
+	return c.post(ctx, endpoint, payload)
+}
+
+func ParseJiraTime(s string) (time.Time, error) {
+	if s == "" {
+		return time.Time{}, errors.New("empty time")
+	}
+	// Jira returns like 2025-12-17T14:00:00.000+0000
+	layouts := []string{
+		"2006-01-02T15:04:05.000-0700",
+		"2006-01-02T15:04:05-0700",
+		time.RFC3339,
+	}
+	var lastErr error
+	for _, l := range layouts {
+		if t, err := time.Parse(l, s); err == nil {
+			return t, nil
+		} else {
+			lastErr = err
+		}
+	}
+	return time.Time{}, lastErr
 }
 
 func (c *Client) get(ctx context.Context, p string) ([]byte, int, error) {

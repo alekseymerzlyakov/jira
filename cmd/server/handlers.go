@@ -40,6 +40,34 @@ type searchResponse struct {
 	HistoryID string          `json:"historyId,omitempty"`
 }
 
+type worklogAutofillRequest struct {
+	Issue   string `json:"issue"`             // "QA-959" or Jira browse URL
+	DryRun  bool   `json:"dryRun"`            // default true (if omitted, false by Go, but UI/curl should pass explicitly)
+	Comment string `json:"comment,omitempty"` // optional comment
+}
+
+type worklogAutofillDay struct {
+	Date             string `json:"date"` // YYYY-MM-DD (Europe/Kiev)
+	Weekday          string `json:"weekday"`
+	TimeSpent        string `json:"timeSpent"`
+	TimeSpentSeconds int    `json:"timeSpentSeconds"`
+	Started          string `json:"started"` // RFC3339 in Europe/Kiev
+	Action           string `json:"action"`  // "skip" | "create"
+	Reason           string `json:"reason,omitempty"`
+	WorklogID        string `json:"worklogId,omitempty"`
+}
+
+type worklogAutofillResponse struct {
+	IssueKey string               `json:"issueKey"`
+	From     string               `json:"from"`
+	To       string               `json:"to"`
+	TimeZone string               `json:"timeZone"`
+	DryRun   bool                 `json:"dryRun"`
+	Days     []worklogAutofillDay `json:"days"`
+	Created  int                  `json:"created"`
+	Skipped  int                  `json:"skipped"`
+}
+
 func (h *apiHandler) health() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -108,6 +136,122 @@ func (h *apiHandler) phrases() http.Handler {
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
+	})
+}
+
+func (h *apiHandler) worklogAutofill() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req worklogAutofillRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondError(w, http.StatusBadRequest, errors.New("invalid json"), "")
+			return
+		}
+		issueKey := extractIssueKey(req.Issue)
+		if issueKey == "" {
+			respondError(w, http.StatusBadRequest, errors.New("issue is required (e.g. QA-959 or browse URL)"), "")
+			return
+		}
+
+		loc, err := time.LoadLocation("Europe/Kiev")
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Errorf("load tz: %w", err), "")
+			return
+		}
+		now := time.Now().In(loc)
+		from := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+		to := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+		worklogs, status, err := h.jira.ListWorklogs(r.Context(), issueKey)
+		if err != nil {
+			respondError(w, status, fmt.Errorf("list worklogs: %w", err), "")
+			return
+		}
+
+		currentUser := strings.TrimSpace(h.jira.User())
+		// existingDays: YYYY-MM-DD (Europe/Kiev) -> true
+		existingDays := map[string]bool{}
+		for _, wl := range worklogs {
+			if currentUser != "" && !strings.EqualFold(strings.TrimSpace(wl.Author.Name), currentUser) {
+				continue
+			}
+			t, err := jira.ParseJiraTime(wl.Started)
+			if err != nil {
+				continue
+			}
+			day := t.In(loc).Format("2006-01-02")
+			// only count within [from..to] in Kiev date terms
+			if day < from.Format("2006-01-02") || day > to.Format("2006-01-02") {
+				continue
+			}
+			existingDays[day] = true
+		}
+
+		weekdaySeconds := map[time.Weekday]int{
+			time.Monday:    30 * 60,
+			time.Tuesday:   45 * 60,
+			time.Wednesday: 30 * 60,
+			time.Thursday:  90 * 60,
+			time.Friday:    30 * 60,
+		}
+
+		var resp worklogAutofillResponse
+		resp.IssueKey = issueKey
+		resp.From = from.Format("2006-01-02")
+		resp.To = to.Format("2006-01-02")
+		resp.TimeZone = "Europe/Kiev"
+		resp.DryRun = req.DryRun
+
+		for d := from; !d.After(to); d = d.AddDate(0, 0, 1) {
+			secs, ok := weekdaySeconds[d.Weekday()]
+			dayStr := d.Format("2006-01-02")
+			day := worklogAutofillDay{
+				Date:             dayStr,
+				Weekday:          d.Weekday().String(),
+				TimeSpentSeconds: secs,
+				TimeSpent:        formatDuration(secs),
+				Started:          time.Date(d.Year(), d.Month(), d.Day(), 9, 0, 0, 0, loc).Format(time.RFC3339),
+			}
+			if !ok {
+				day.Action = "skip"
+				day.Reason = "weekend"
+				resp.Skipped++
+				resp.Days = append(resp.Days, day)
+				continue
+			}
+			if existingDays[dayStr] {
+				day.Action = "skip"
+				day.Reason = "already has worklog for this day"
+				resp.Skipped++
+				resp.Days = append(resp.Days, day)
+				continue
+			}
+
+			day.Action = "create"
+			if !req.DryRun {
+				started := time.Date(d.Year(), d.Month(), d.Day(), 9, 0, 0, 0, loc)
+				createdBody, st, err := h.jira.AddWorklog(r.Context(), issueKey, started, secs, req.Comment)
+				if err != nil {
+					respondErrorWithBody(w, st, fmt.Errorf("add worklog %s: %w", dayStr, err), createdBody, "")
+					return
+				}
+				var created struct {
+					ID string `json:"id"`
+				}
+				_ = json.Unmarshal(createdBody, &created)
+				day.WorklogID = created.ID
+				resp.Created++
+			} else {
+				resp.Created++
+			}
+			resp.Days = append(resp.Days, day)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
 	})
 }
 
@@ -202,6 +346,50 @@ func (h *apiHandler) projectSprints() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(all)
 	})
+}
+
+func extractIssueKey(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	// Normalize fancy hyphens to plain '-'
+	s = strings.NewReplacer("‐", "-", "‑", "-", "–", "-", "—", "-", "−", "-").Replace(s)
+	// If it's a browse URL, grab the last path segment.
+	if strings.Contains(s, "/browse/") {
+		parts := strings.Split(s, "/browse/")
+		if len(parts) == 2 {
+			s = parts[1]
+		}
+	}
+	// strip query/hash
+	if i := strings.IndexAny(s, "?#"); i >= 0 {
+		s = s[:i]
+	}
+	s = strings.Trim(s, "/")
+	s = strings.ToUpper(s)
+	// Allow spaces around dash too, e.g. "QA - 959".
+	re := regexp.MustCompile(`^([A-Z][A-Z0-9]+)\s*-\s*(\d+)$`)
+	m := re.FindStringSubmatch(s)
+	if len(m) == 3 {
+		return m[1] + "-" + m[2]
+	}
+	return ""
+}
+
+func formatDuration(seconds int) string {
+	if seconds <= 0 {
+		return "0m"
+	}
+	h := seconds / 3600
+	m := (seconds % 3600) / 60
+	if h > 0 && m > 0 {
+		return fmt.Sprintf("%dh %dm", h, m)
+	}
+	if h > 0 {
+		return fmt.Sprintf("%dh", h)
+	}
+	return fmt.Sprintf("%dm", m)
 }
 
 func (h *apiHandler) historyList() http.Handler {

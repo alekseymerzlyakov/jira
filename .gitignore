@@ -1,3 +1,7 @@
 .env.local
 env.local
 
+# Runtime/user data (keep local)
+data/history.json
+data/phrases.json
+

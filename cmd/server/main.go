@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"strings"
 
 	"path/filepath"
 	"time"
@@ -38,13 +39,20 @@ func main() {
 	mux.Handle("/api/projects", api.projects())
 	mux.Handle("/api/search", api.search())
 	mux.Handle("/api/phrases", api.phrases())
+	mux.Handle("/api/worklog/autofill", api.worklogAutofill())
 	mux.Handle("/api/projects/", api.projectSprints())
 	mux.Handle("/api/history", api.historyList())
 	mux.Handle("/api/history/", api.historyItem())
 
 	// Static files from web directory.
 	fs := http.FileServer(http.Dir(cfg.WebDir))
-	mux.Handle("/", fs)
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Prevent stale frontend JS/CSS during development.
+		if strings.HasSuffix(r.URL.Path, ".js") || strings.HasSuffix(r.URL.Path, ".css") || strings.HasSuffix(r.URL.Path, ".html") || r.URL.Path == "/" {
+			w.Header().Set("Cache-Control", "no-store")
+		}
+		fs.ServeHTTP(w, r)
+	}))
 
 	server := &http.Server{
 		Addr:              cfg.Addr,

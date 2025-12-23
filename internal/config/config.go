@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -21,6 +22,10 @@ type Config struct {
 }
 
 func Load() (Config, error) {
+	// Convenience for local dev: allow credentials in ./env.local or ./.env.local (gitignored).
+	loadEnvFileIfPresent("env.local")
+	loadEnvFileIfPresent(".env.local")
+
 	cfg := Config{
 		Addr:     env("ADDR", ":8080"),
 		JiraHost: env("JIRA_HOST", ""),
@@ -49,6 +54,39 @@ func env(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func loadEnvFileIfPresent(filename string) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return
+	}
+	lines := strings.Split(string(data), "\n")
+	for _, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "export ") {
+			line = strings.TrimSpace(strings.TrimPrefix(line, "export "))
+		}
+		k, v, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		k = strings.TrimSpace(k)
+		v = strings.TrimSpace(v)
+		if k == "" || os.Getenv(k) != "" {
+			continue
+		}
+		// Strip simple quotes.
+		if len(v) >= 2 {
+			if (v[0] == '\'' && v[len(v)-1] == '\'') || (v[0] == '"' && v[len(v)-1] == '"') {
+				v = v[1 : len(v)-1]
+			}
+		}
+		_ = os.Setenv(k, v)
+	}
 }
 
 func intFromEnv(key string, def int) int {

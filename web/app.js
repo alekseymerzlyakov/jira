@@ -41,7 +41,11 @@ let currentHistoryId = null;
 // Если пользователь меняет текст запроса — сбрасываем JQL, чтобы не прилипало старое.
 queryInput.addEventListener("input", () => {
   jqlInput.value = "";
+  updateActionButtons();
 });
+queryInput.addEventListener("change", updateActionButtons);
+queryInput.addEventListener("keyup", updateActionButtons);
+queryInput.addEventListener("paste", () => setTimeout(updateActionButtons, 0));
 
 function buildPayload(dryRun = false) {
   return {
@@ -64,6 +68,12 @@ runBtn.addEventListener("click", async () => {
 });
 
 async function runSearch(dryRun) {
+  const q = getQueryValue();
+  if (isWorklogAutofillQuery(q)) {
+    await runWorklogAutofill(dryRun, q);
+    return;
+  }
+
   statusEl.textContent = dryRun ? "Previewing..." : "Running...";
   outputEl.textContent = "";
   const payload = buildPayload(dryRun);
@@ -99,6 +109,75 @@ async function runSearch(dryRun) {
       }
       await loadHistoryEntries();
     }
+  } catch (err) {
+    statusEl.textContent = `Error: ${err.message}`;
+  }
+}
+
+async function runWorklogAutofill(dryRun, queryText) {
+  const issue = extractIssueFromText(queryText);
+  if (!issue) {
+    statusEl.textContent = "Ошибка: не удалось найти ключ задачи (например QA-959) или ссылку /browse/...";
+    return;
+  }
+  statusEl.textContent = dryRun ? "Previewing plan..." : "Creating worklogs...";
+  outputEl.textContent = "";
+  jqlInput.value = "";
+  try {
+    const res = await fetch("/api/worklog/autofill", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        issue,
+        dryRun,
+        comment: "Auto log",
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || res.statusText);
+    }
+
+    const steps = [
+      {
+        name: "Detect command",
+        description: "Worklog autofill command detected in query",
+        status: "completed",
+        result: { issue },
+      },
+      {
+        name: dryRun ? "Preview plan" : "Apply plan",
+        description: dryRun ? "No changes were made (dry-run)" : "Missing worklogs were created",
+        status: "completed",
+        result: {
+          issueKey: data.issueKey,
+          from: data.from,
+          to: data.to,
+          timeZone: data.timeZone,
+          created: data.created,
+          skipped: data.skipped,
+        },
+      },
+    ];
+    renderSteps(steps);
+
+    const lines = [];
+    lines.push(`Worklog autofill for: ${data.issueKey}`);
+    lines.push(`Range: ${data.from} .. ${data.to} (${data.timeZone})`);
+    lines.push(`Mode: ${dryRun ? "DRY RUN (preview)" : "APPLY"}`);
+    lines.push(`Created: ${data.created}`);
+    lines.push(`Skipped: ${data.skipped}`);
+    lines.push("");
+    lines.push("Days:");
+    (data.days || []).forEach((d) => {
+      const idPart = d.worklogId ? ` id=${d.worklogId}` : "";
+      const reason = d.reason ? ` (${d.reason})` : "";
+      lines.push(
+        `${d.date} ${d.weekday} — ${d.timeSpent} @ ${d.started} => ${d.action}${reason}${idPart}`
+      );
+    });
+    outputEl.textContent = lines.join("\n");
+    statusEl.textContent = dryRun ? "Preview plan ready" : "OK, worklogs created";
   } catch (err) {
     statusEl.textContent = `Error: ${err.message}`;
   }
@@ -212,6 +291,8 @@ loadHistoryEntries();
 if (commandRunBtn) {
   commandRunBtn.addEventListener("click", executeCommand);
 }
+// Ensure buttons are correct on first paint even before phrases load.
+updateActionButtons();
 
 function buildIssuesList(raw, issuesFromResponse) {
   if (issuesFromResponse && issuesFromResponse.length) {
@@ -304,6 +385,47 @@ function getQueryValue() {
   return selectedPhrase || queryInput.value;
 }
 
+function isWorklogAutofillQuery(text) {
+  const q = (text || "").toLowerCase();
+  if (!q) return false;
+  if (!extractIssueFromText(text)) return false;
+  return (
+    q.includes("залог") ||
+    q.includes("логир") ||
+    q.includes("worklog") ||
+    q.includes("спиш") ||
+    q.includes("time log") ||
+    q.includes("log time")
+  );
+}
+
+function extractIssueFromText(text) {
+  if (!text) return "";
+  // Normalize different hyphen characters to '-' to make copy/paste from Jira robust.
+  const normalized = String(text).replace(/[‐‑–—−]/g, "-");
+  // Prefer full browse URL
+  const urlMatch = normalized.match(/https?:\/\/[^ \n\t]+\/browse\/[A-Za-z][A-Za-z0-9]+-\d+/i);
+  if (urlMatch) {
+    // Keep URL but normalize the key part to uppercase for backend parsing.
+    return urlMatch[0].replace(/\/browse\/([A-Za-z][A-Za-z0-9]+-\d+)/i, (m, k) => `/browse/${String(k).toUpperCase()}`);
+  }
+  // Fallback: issue key
+  // Allow spaces around dash (e.g. "QA - 959") too.
+  const keyMatch = normalized.match(/\b([A-Za-z][A-Za-z0-9]+)\s*-\s*(\d+)\b/i);
+  if (keyMatch) return `${String(keyMatch[1]).toUpperCase()}-${keyMatch[2]}`;
+  return "";
+}
+
+function updateActionButtons() {
+  const q = getQueryValue();
+  const isAutofill = isWorklogAutofillQuery(q);
+  previewBtn.textContent = isAutofill ? "Preview plan" : "Preview JQL";
+  runBtn.textContent = isAutofill ? "Go (create worklogs)" : "Search";
+  // Analysis/raw flags don't apply to worklog autofill.
+  if (analysisFlag) analysisFlag.disabled = isAutofill;
+  if (showRawFlag) showRawFlag.disabled = isAutofill;
+}
+
 async function loadPhrases() {
   try {
     const res = await fetch("/api/phrases");
@@ -352,6 +474,7 @@ function renderPhrases() {
         queryInput.disabled = true;
         jqlInput.value = "";
       }
+      updateActionButtons();
       renderPhrases();
     });
     const editBtn = document.createElement("button");
@@ -381,6 +504,7 @@ function renderPhrases() {
   if (!selectedPhrase) {
     queryInput.disabled = false;
   }
+  updateActionButtons();
 }
 
 phraseSaveBtn.addEventListener("click", async () => {

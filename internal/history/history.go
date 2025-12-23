@@ -1,19 +1,41 @@
 package history
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
 
 // Entry is a single search attempt.
 type Entry struct {
-	Query      string    `json:"query"`
-	JQL        string    `json:"jql"`
-	MaxResults int       `json:"maxResults"`
-	CreatedAt  time.Time `json:"createdAt"`
+	ID         string          `json:"id"`
+	Query      string          `json:"query"`
+	JQL        string          `json:"jql"`
+	MaxResults int             `json:"maxResults"`
+	Steps      []Step          `json:"steps,omitempty"`
+	Issues     []IssueSnapshot `json:"issues,omitempty"`
+	Analysis   string          `json:"analysis,omitempty"`
+	CreatedAt  time.Time       `json:"createdAt"`
+}
+
+// Step represents an individual phase (JQL derivation, query, summary).
+type Step struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	Status      string          `json:"status"`
+	Result      json.RawMessage `json:"result,omitempty"`
+}
+
+// IssueSnapshot keeps minimal info for follow-ups.
+type IssueSnapshot struct {
+	Key   string `json:"key"`
+	Title string `json:"title"`
+	URL   string `json:"url"`
 }
 
 // Store persists history to a JSON file with a simple append-then-trim strategy.
@@ -77,4 +99,25 @@ func (s *Store) save() error {
 		return err
 	}
 	return os.WriteFile(s.path, data, 0o644)
+}
+
+// Get returns entry by ID.
+func (s *Store) Get(id string) (Entry, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := len(s.list) - 1; i >= 0; i-- {
+		if s.list[i].ID == id {
+			return s.list[i], true
+		}
+	}
+	return Entry{}, false
+}
+
+// NewID produces pseudo-unique ID.
+func NewID() string {
+	var buf [8]byte
+	if _, err := rand.Read(buf[:]); err != nil {
+		return strings.ReplaceAll(time.Now().UTC().Format("20060102150405.999999999"), ".", "")
+	}
+	return hex.EncodeToString(buf[:])
 }
